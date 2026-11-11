@@ -1,0 +1,123 @@
+%% md
+# 05 · Rewriting: clean, translate, anonymise
+
+> **Old question:** How much research time goes into cleaning firm names, translating interviews and removing identifying details?
+> **New tool:** an LLM used as a careful rewriter, with a check after each step.
+> **What you'll see:** (a) 133 messy firm names grouped into parent firms, (b) a Chinese interview translated with its tone intact, (c) interview snippets anonymised, with a highlighted diff.
+
+%% code
+import sys, pathlib
+sys.path.insert(0, str(pathlib.Path.cwd().parent))
+import pandas as pd
+import matplotlib.pyplot as plt
+from pydantic import BaseModel, Field
+from workshop import *
+
+setup_plots()
+patents = pd.read_csv("../data/patents.csv")
+snippets = pd.read_csv("../data/interview_snippets.csv")
+
+%% md
+## (a) Normalise messy firm names
+
+Patent offices record the assignee exactly as filed: `KABUSHIKI KAISHA TOSHIBA`, `Toshiba Tec Kabushiki Kaisha` and `TOSHIBA MEMORY CORPORATION` are three "firms". Before counting patents per firm, you need one name per firm. We send the names in batches of 40 and ask for the parent company of each. One request with all 133 names works too, but the answer gets long and slow.
+
+%% code
+names = sorted(patents["assignee"].unique())
+print(len(names), "different assignee names, e.g.:")
+print(*names[:12], sep="\n")
+
+%% code
+class FirmName(BaseModel):
+    original: str = Field(description="The name exactly as given in the list")
+    parent: str = Field(description="Short name of the parent company or group, e.g. 'Toshiba', 'LG', 'Siemens'")
+
+class FirmList(BaseModel):
+    firms: list[FirmName]
+
+INSTRUCTIONS = ("Below is a list of patent assignee names, one per line. For every name, give the short name of its "
+                "parent company or corporate group. Subsidiaries map to their group. Include every name in the list.")
+lookup = {}
+for i in range(0, len(names), 40):   # 40 names per request: long answers are slow and fragile
+    result = extract("\n".join(names[i:i + 40]), FirmList, INSTRUCTIONS)
+    lookup |= {f.original: f.parent for f in result.data.firms} if result.data else {}
+    print(f"names {i + 1}-{min(i + 40, len(names))}: attempts {result.attempts} · source {result.source}")
+
+%% code
+patents["firm"] = patents["assignee"].map(lookup).fillna(patents["assignee"])  # names the model skipped stay as they are
+print("names the model skipped:", len(set(names) - set(lookup)))
+counts = pd.Series({"raw names": patents.assignee.nunique(), "after LLM": patents.firm.nunique(),
+                    "PatentsView groups": patents.assignee_patentsview_harmonized.nunique()})
+counts
+
+%% code
+fig, ax = plt.subplots(figsize=(6, 3.2))
+ax.bar(counts.index, counts.values, color=[GREY, COLORS[0], COLORS[2]], width=0.6)
+for i, v in enumerate(counts.values):
+    ax.text(i, v + 2, str(v), ha="center")
+ax.set_title("How many different firms are in the patent sample?"); ax.set_ylabel("unique firms")
+plt.show()
+
+%% md
+PatentsView has its own hand-curated grouping, so we can check the LLM: for each PatentsView group with several spellings, did the LLM give them all one parent?
+
+%% code
+multi = patents.groupby("assignee_patentsview_harmonized").filter(lambda g: g.assignee.nunique() > 1)
+check = multi.groupby("assignee_patentsview_harmonized").agg(spellings=("assignee", "nunique"),
+                                                            llm_parents=("firm", "unique"))
+check["one_parent"] = check.llm_parents.str.len() == 1
+print(f"LLM put all spellings under one parent for {check.one_parent.sum()} of {len(check)} groups")
+check
+
+%% md
+## (b) Translate and keep the speaker's voice
+
+A literal translation often turns an exasperated shop owner into a polite civil servant. We ask the model to keep the **register**: how formal, casual or emotional the speaker sounds. These snippets are **synthetic**, written for this workshop.
+
+%% code
+TRANSLATE = ("Translate this interview quote from Chinese into English. Keep the speaker's register: if they sound "
+             "casual, blunt or frustrated, the English should too. Do not explain. Return only the translation.\n\n{text}")
+for sid in ["S13", "S12"]:
+    row = snippets.set_index("id").loc[sid]
+    print(f"{row.speaker}\n  原文: {row.text}\n  EN:   {chat(TRANSLATE.format(text=row.text))}\n")
+
+%% md
+## (c) Anonymise interview snippets
+
+Before sharing transcripts you must remove names, firms and places. We ask for **typed placeholders** (`[PERSON]`, `[ORG]`, `[PLACE]`) instead of deleting words, so the text still reads naturally and you can count what was removed.
+
+%% code
+ANON = ("Rewrite the interview quote below. Replace every person's name with [PERSON], every company or organisation "
+        "with [ORG], and every city, region or country with [PLACE]. Change nothing else, keep the original language, "
+        "and return only the rewritten quote.\n\n{text}")
+snippets["anonymised"] = [chat(ANON.format(text=t)) for t in snippets["text"]]
+for i in [0, 2, 12]:
+    print(snippets.id[i], snippets.speaker[i]); show_diff(snippets.text[i], snippets.anonymised[i])
+
+%% code
+placeholders = snippets["anonymised"].str.extractall(r"\[(PERSON|ORG|PLACE)\]")[0].value_counts()
+print("placeholders inserted:", placeholders.to_dict())
+known = ["Mette", "Lars", "Zhou", "Wang Jie", "Liu", "Anders Holm", "Sørensen", "老张", "李强", "王小雨",
+         "Nordlys", "Hongqiao", "Bølgenet", "Vindkraft", "Tianmu", "Jinhua", "Birk", "恒川", "Aarhus", "Suzhou", "东莞"]
+leaks = {k: snippets.id[snippets.anonymised.str.contains(k, regex=False)].tolist() for k in known}
+print("names still present:", {k: v for k, v in leaks.items() if v} or "none")
+
+%% md
+**Always check.** Automated anonymisation misses things: nicknames, job titles that identify someone ("the CEO of our Odense plant"), or rare details. Treat it as a first pass that a human reviews, never as a guarantee.
+
+%% code
+pathlib.Path("../outputs").mkdir(exist_ok=True)
+patents[["id", "assignee", "firm", "assignee_patentsview_harmonized"]].to_csv("../outputs/firm_names.csv", index=False)
+snippets[["id", "speaker", "anonymised"]].to_csv("../outputs/snippets_anonymised.csv", index=False)
+print("saved outputs/firm_names.csv and outputs/snippets_anonymised.csv")
+
+%% md
+## Try it yourself
+
+Change the anonymisation rule, for example also replace job titles with `[ROLE]`, and run it on one snippet:
+
+%% code
+# Your turn: edit the instruction, then run
+MY_RULE = ANON.replace("and every city", "every job title with [ROLE], and every city")
+before = snippets.text[5]
+show_diff(before, chat(MY_RULE.format(text=before)))

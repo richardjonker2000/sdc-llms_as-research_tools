@@ -1,0 +1,164 @@
+%% md
+# 03 · A tiny model on your laptop that answers with probabilities
+
+> **Old question:** When can we trust automated coding, and when should a human look?
+> **New tool:** a *decision model* (`tev1:0.8b`, about 800 MB) running locally in Ollama. It writes no text. It returns a probability for each option.
+> **What you'll see:** decisions per second on your own laptop, a chart of how often it is right when it is sure, an order-effect test, and the local model next to the API model.
+
+%% md
+## What is a decision model?
+
+A chat model *writes* an answer, word by word. A decision model only *chooses*: you give it a text (the **state**), a question (the **instructions**), and fixed options (the **criteria**). It returns how likely each option is. This makes it:
+
+- **fast and private**: it runs on your laptop, and nothing leaves the machine;
+- **easy to analyse**: probabilities, not prose;
+- **honest about doubt**: each answer comes with a **confidence** between 0 (no idea) and 1 (certain).
+
+%% code
+import sys, pathlib, time
+sys.path.insert(0, str(pathlib.Path.cwd().parent))
+import pandas as pd
+import matplotlib.pyplot as plt
+from workshop import *
+
+setup_plots()
+status()
+
+%% code
+tasks = pd.read_csv("../data/onet_tasks.csv")
+gold = pd.read_csv("../data/gold_onet.csv")
+data = tasks.merge(gold[["task_id", "label"]], on="task_id")
+data["gold"] = data["label"].map({"high": "yes", "medium": "yes", "low": "no"})
+print(len(data), "tasks with a reference label (draft labels, to be checked by a human coder)")
+
+%% md
+## Step 1 · One task, three questions, one call
+
+Notebook 02's rubric had three levels. A tiny model is best at **simple, well-separated choices**, so here the main question is a yes/no version: *could a language model do this task?* The reference labels are converted the same way: `high` and `medium` count as yes, and `low` counts as no.
+
+One request can carry up to 64 questions, so we also ask whether the task is routine (yes/no) and how much training it needs (a score).
+
+%% code
+CAN_DO = {"type": "choice", "instructions": "Could a language model like ChatGPT do this work task?",
+          "criteria": {"yes": "Mostly yes: the task is reading, writing or analysing text or data",
+                       "no": "Mostly no: the task is physical, in-person, or needs presence or authority"}}
+QUESTIONS = {"can_do": CAN_DO,
+             "routine": {"type": "noul", "instructions": "Is this a routine task, done the same way each time?"},
+             "training": {"type": "score", "instructions": "How much training does this task need?",
+                          "criteria": ["little", "some", "a lot"]}}
+task = data.task.iloc[0]
+print(task)
+decide(task, QUESTIONS)
+
+%% md
+Read the output: `can_do` has a `choice`, a probability for each option and a `confidence`. `routine` is the probability of "yes". `training` is the expected level (0 = little, 2 = a lot).
+
+## Step 2 · How fast is it?
+
+We switch the cache off so every decision is computed on your laptop right now.
+
+%% code
+sample = data.task.head(20).tolist()
+try:
+    t0 = time.perf_counter()
+    for t in sample:
+        decide(t, {"can_do": CAN_DO}, use_cache=False)
+    secs = time.perf_counter() - t0
+    print(f"{len(sample)/secs:.1f} decisions per second ({1000*secs/len(sample):.0f} ms each) on this laptop")
+    if mode() == "dry run": print("(dry run: these are fake answers, so the speed means nothing)")
+except SetupError as e:
+    print("Decision model not available:", e)
+
+%% md
+## Step 3 · Automate the confident cases, send the rest to a human
+
+We code all 40 tasks and compare each answer with the reference label. Every answer also comes with a **confidence** score. The question is simple: **when the model says it is sure, is it more often right?**
+
+%% code
+local = decide_many(data.task, {"can_do": CAN_DO})
+data["local"] = local["can_do"].values
+data["confidence"] = local["can_do_confidence"].values
+data["p_yes"] = local["can_do_p_yes"].values
+data["correct"] = data["local"] == data["gold"]
+print(f"Right on {data.correct.sum()} of {len(data)} tasks ({data.correct.mean():.0%})")
+pd.crosstab(data.gold, data.local, rownames=["reference"], colnames=["decision model"])
+
+%% md
+The tasks where the decision model and the reference label disagree. Read them: is the model wrong, or is the reference label debatable?
+
+%% code
+wrong = data[~data.correct].sort_values("confidence", ascending=False)
+print(len(wrong), "disagreements\n")
+for r in wrong.itertuples():
+    print(f"[{r.occupation_title}] {r.task}")
+    print(f"   reference: {r.gold} ({r.label})   model: {r.local}   P(yes) = {r.p_yes:.2f}   confidence = {r.confidence:.2f}\n")
+
+%% md
+Now we sort the 40 answers by confidence and split them into three equal groups: the answers the model was **least sure** about, the **middle** ones, and the ones it was **most sure** about. For each group, how many did it get right?
+
+%% code
+data["group"] = pd.qcut(data.confidence.rank(method="first"), 3, labels=["least sure", "middle", "most sure"])
+groups = data.groupby("group", observed=True)["correct"].agg(["sum", "size", "mean"])
+fig, ax = plt.subplots(figsize=(6, 3.6))
+ax.bar(groups.index.astype(str), groups["mean"], color=[GREY, GREY, COLORS[0]], width=0.6)
+for i, (right, n) in enumerate(zip(groups["sum"], groups["size"])):
+    ax.text(i, groups["mean"].iloc[i] + 0.02, f"{right} of {n} right", ha="center")
+ax.set_ylim(0, 1.12); ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda v, _: f"{v:.0%}"))
+ax.set_title("When the model is sure, is it right?"); ax.set_ylabel("share of answers that are right")
+plt.show()
+
+%% md
+If the bars rise from left to right, confidence is useful. You can then **let the model code the cases it is sure about and hand-code the rest**. For example: accept the "most sure" group automatically, and have a person check the other two. On a dataset of 30,000 texts, that saves a third of the hand-coding while keeping the automated part very accurate.
+
+**A lesson from building this notebook:** we first asked the three-level question from notebook 02. The tiny model answered "medium" for almost every task, and its confidence said nothing about accuracy. Small models are good at clear binary choices, so check what your model can do before trusting it with fine distinctions.
+
+## Step 4 · Does the order of the options matter?
+
+A known weakness of language models: the answer can change when you list the same options in a different order. We swap the options and code the tasks again.
+
+%% code
+CAN_DO_SWAPPED = CAN_DO | {"criteria": dict(reversed(CAN_DO["criteria"].items()))}
+print("new order:", list(CAN_DO_SWAPPED["criteria"]))
+again = decide_many(data.task, {"can_do": CAN_DO_SWAPPED})
+data["p_yes_swapped"] = again["can_do_p_yes"].values
+flips = again["can_do"].values != data["local"].values
+print(f"{flips.sum()} of {len(data)} answers flip when the options are swapped ({flips.mean():.0%})")
+print(f"average change in P(yes): {(data.p_yes - data.p_yes_swapped).abs().mean():.3f}")
+
+%% md
+How to read this:
+
+- **Some answers flip:** the order of the options changed the answer. Flipped answers are usually the low-confidence ones, another reason to use confidence as a filter.
+- **Nothing flips and P(yes) barely moves:** the model is insensitive to option order. On the laptop used to build this notebook, `tev1` gave *identical* probabilities in both orders. That is a real advantage: chat models are well documented to be sensitive to option order, and you can test yours by reordering the `Literal[...]` values in a codebook.
+
+## Step 5 · Local decision model vs. API model
+
+Notebook 02 coded the same 40 tasks with the big API model, on the three-level rubric. We convert its labels to yes/no the same way, then print every task where the two models disagree.
+
+%% code
+runs = pathlib.Path("../outputs/onet_exposure_runs.csv")
+if runs.exists():
+    api = pd.read_csv(runs)[["task_id", "label_t0"]].rename(columns={"label_t0": "api_label"})
+    table = data.merge(api, on="task_id")
+    table["api"] = table["api_label"].map({"high": "yes", "medium": "yes", "low": "no"})
+    print(f"local and API agree on {(table.local == table.api).mean():.0%} of tasks\n")
+    for r in table[table.local != table.api].itertuples():
+        print(f"[{r.occupation_title}] {r.task}")
+        print(f"   API: {r.api} ({r.api_label})   local: {r.local} (P(yes) = {r.p_yes:.2f})   reference: {r.gold}\n")
+else:
+    print("Run notebook 02 first: it saves the API labels to outputs/onet_exposure_runs.csv")
+
+%% md
+**Take-away:** the local model is tiny, free and private, and it tells you when it is unsure. The API model is stronger but costs money and sends your data away. A practical pipeline can use both, with humans on the hardest cases.
+
+## Try it yourself
+
+Ask your own question about all 150 tasks (about a minute on a laptop). Results are averaged per occupation. Change the instructions or options and run it again. Does the ranking make sense to you?
+
+%% code
+# Your turn: change the question, then run
+my_question = {"where": {"type": "choice", "instructions": "Where is this task mainly done?",
+               "criteria": {"computer": "At a computer or desk",
+                            "elsewhere": "Away from a desk: on site, on the road, in a kitchen or with people"}}}
+answers = decide_many(tasks.task, my_question)
+tasks.assign(p_computer=answers["where_p_computer"].values).groupby("occupation_title")["p_computer"].mean().sort_values().round(2)

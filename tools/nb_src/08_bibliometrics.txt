@@ -1,0 +1,493 @@
+%% md
+# 08 · Add-on: from one paper to a map of the field
+
+> **Old question:** How do I get an overview of *my* research field (its streams, classics, methods and gaps) without reading 1,000 papers?
+> **New tool:** citation networks and unsupervised clustering to find the structure, then an LLM to name, code and question it, with every step checked.
+> **What you'll take home:** a map of your topic's research streams, where your own project sits, a reading list per stream ready for Zotero, the papers that bridge streams, a coded literature table, and an interactive map.
+
+%% md
+## How this notebook works
+
+You type **your own research topic**. The notebook searches [OpenAlex](https://openalex.org), a free, open database of about 250 million scholarly works, and builds a sample of about 1,000–1,300 papers with titles, abstracts and **reference lists**. The reference lists are what let us draw a map. *How* the sample is built shapes everything you will see, so Step 0 explains it in detail.
+
+**No internet or no OpenAlex key?** Use one of the pre-run examples, or set `RESEARCH_QUESTION = ""` to use the prepared samples in `data/openalex/`: `ai_labour`, `green_innovation` or `china_innovation` (see `data/README.md`). Your own topics are saved in the same folder after the first run, so re-running is instant and works offline.
+
+The heavy lifting (searching, networks, clustering, the map) lives in `workshop/biblio.py`, so the cells stay short.
+
+%% code
+import sys, pathlib, re, json
+from IPython.display import Markdown, display
+sys.path.insert(0, str(pathlib.Path.cwd().parent))
+from typing import Literal
+import pandas as pd
+import matplotlib.pyplot as plt
+from pydantic import BaseModel, Field
+from workshop import *
+from workshop.biblio import *
+
+setup_plots()
+status()
+
+%% md
+## Step 0 · Your research question
+
+Write **one thing**: your research question, or simply your field, in plain words. Three LLM steps turn it into a search plan, each in its own cell below so you can see exactly what happens:
+
+- **0a** the LLM **rewrites** the question for a literature search;
+- **0b** it builds a **search query**, OpenAlex **counts** the hits, and the LLM refines the query until the size is right;
+- **0c** it picks a **seed paper**, the anchor of your map, and says why.
+
+The search covers social-science papers (economics, business, management, psychology, sociology), so engineering or medical papers that share your words stay out.
+
+Change the line below to another example, or to your own question in quotes. The examples are pre-run and work offline; your own question needs internet and `OPENALEX_API_KEY` in `config.env`.
+
+| Example | Research question |
+| --- | --- |
+| `EXAMPLES["fdi_spillovers"]` | Does foreign direct investment lead to technology spillovers to domestic firms, and does this depend on their absorptive capacity? I'm especially interested in China. |
+| `EXAMPLES["green_subsidies"]` | Do government subsidies for green innovation lead to more and better environmental patents in Chinese firms? |
+| `EXAMPLES["robots_china"]` | How does the adoption of industrial robots affect the wages and tasks of low-skilled workers in Chinese manufacturing firms? |
+| `EXAMPLES["ai_danish_firms"]` | Do firms that adopt AI hire more or fewer workers, and which occupations are affected? Evidence from Danish register data. |
+
+%% code
+RESEARCH_QUESTION = EXAMPLES["fdi_spillovers"]       # <- change this: another example, or "your own question or field"
+
+%% md
+### 0a · Rewrite the question for a literature search
+
+A first draft of a research question rarely works as a search: typos, several questions in one, everyday words instead of the field's terms. The LLM rewrites it with a small codebook. Notice what it **sets aside**, and whether it offers **other readings** of your question: if one fits better, put that in `RESEARCH_QUESTION` and re-run.
+
+%% code
+class LitQuestion(BaseModel):
+    rewritten: str = Field(description="The question rewritten for a literature search: ONE clear question, spelling "
+                                       "fixed, using the terms researchers in this field actually use")
+    focus: str = Field(description="The core topic in 3 to 8 words")
+    field_terms: list[str] = Field(description="3 to 8 established terms and synonyms the literature uses for this topic")
+    setting: list[str] = Field(description="The specific setting of the question that a closely matching paper would "
+                                           "share: industry, country, population, policy, technology. Empty if none")
+    set_aside: list[str] = Field(description="Parts of the question not used for searching at all (methods, data, "
+                                             "secondary sub-questions); empty if none")
+    alternatives: list[str] = Field(description="If the question can be read in clearly different ways, 1 or 2 other "
+                                                "rewritten questions; otherwise empty")
+
+REWRITE_INSTR = ("A PhD student will map the existing literature around their research question. Rewrite the question so "
+                 "it works well for a literature search: keep the student's intent, fix spelling, keep ONE core question, "
+                 "and use the established terms of the field rather than everyday wording. The rewritten question should "
+                 "name the general phenomenon; list the specific setting (industry, country, population, policy) under "
+                 "setting. Methods, data and secondary sub-questions go under set_aside.")
+
+rw = extract(RESEARCH_QUESTION, LitQuestion, REWRITE_INSTR).data if RESEARCH_QUESTION else None
+if rw:
+    print(f"your question: {RESEARCH_QUESTION}\nrewritten:     {rw.rewritten}\nfield terms:   {', '.join(rw.field_terms)}")
+    print(f"setting:       {'; '.join(rw.setting) or '-'}\nset aside:     {'; '.join(rw.set_aside) or '-'}")
+    for alt in rw.alternatives:
+        print(f"or did you mean: {alt}")
+
+%% md
+### 0b · Build a search query, test it, and refine it
+
+The LLM turns the rewritten question into an OpenAlex query (concept groups joined with `AND`, synonyms with `OR`). Then OpenAlex **counts** how many articles it finds per period. If there are too few or too many, the counts go back to the LLM with a request to broaden or narrow the query, up to 4 rounds. This loop of propose, check against the real database, and feed back is a small *agent*: the LLM acts, observes the result, and corrects itself.
+
+%% code
+class SearchPlan(BaseModel):
+    concepts: list[str] = Field(description="The 2 or 3 core concepts of the question")
+    query: str = Field(description='An OpenAlex search query: at most 3 concept groups joined with AND; inside a group, '
+                                   'synonyms joined with OR; multi-word terms in "double quotes". Example: '
+                                   '("industrial robots" OR automation) AND (wages OR earnings OR employment)')
+    project: str = Field(description="The question restated as a 2-sentence project description: what is studied, how, where")
+    literature_question: str = Field(description="One question to ask the existing literature, useful for this project")
+
+PLAN_INSTR = ("A PhD student wants to map the literature around their research question. Turn it into a search plan for "
+              "OpenAlex, which searches titles and abstracts. The query should find the SURROUNDING FIELD, not only papers "
+              "answering this exact question: a few hundred to a few thousand articles. Leave out the country, the data and "
+              "the method unless they are the core topic; those details go in the project description.")
+
+if rw:
+    base = f"{rw.rewritten}\nEstablished terms: {', '.join(rw.field_terms)}"
+    text = base
+    for rnd in range(1, 5):
+        sp = extract(text, SearchPlan, PLAN_INSTR).data
+        counts = query_counts(sp.query)                           # OpenAlex: articles per period
+        print(f"round {rnd}: {counts.to_dict() if counts is not None else 'not checked (offline)'}\n   {sp.query}")
+        if counts is None or (counts["2018 onwards"] >= 150 and counts.sum() <= 30000):
+            break                                                 # a good size: stop
+        hint = "too few: fewer AND groups, more synonyms" if counts["2018 onwards"] < 150 else "too many: be more specific"
+        text = f"{base}\n\nYour previous query was:\n{sp.query}\nIt found {counts.to_dict()} articles: {hint}."
+    print(f"\nproject: {sp.project}\nquestion for the literature: {sp.literature_question}")
+
+%% md
+### 0c · Choose the seed paper
+
+The sample is built around one anchor paper (see "How this sample is built" below). The most-cited match is not always the right anchor: it may be a famous paper on a neighbouring topic. So we show the LLM the 15 most-cited matches and ask which is most central to *your* question, with a reason. Disagree? Set `plan.seed_doi` to another DOI in the next cell.
+
+%% code
+class SeedChoice(BaseModel):
+    number: int = Field(description="The number of the paper most central to the research question")
+    reason: str = Field(description="One sentence: why this paper is the best anchor for the question")
+
+seed_doi = None
+cands = seed_candidates(sp.query) if rw else None
+if cands is not None:
+    listing = "\n".join(f"{i}. {r.title} ({r.year}, {r.cited_by_count} citations). {r.abstract[:300]}" for i, r in cands.iterrows())
+    pick = extract(f"RESEARCH QUESTION: {rw.rewritten}\n\nCANDIDATE PAPERS:\n{listing}", SeedChoice,
+                   "Choose the paper that is the best anchor for mapping the literature around this research question.").data
+    if pick and 0 <= pick.number < len(cands):
+        seed_doi = cands.doi[pick.number]
+        print(f"seed paper: {cands.title[pick.number]} ({cands.year[pick.number]})\nwhy: {pick.reason}")
+    display(cands[["title", "year", "cited_by_count"]].assign(chosen=cands.doi == seed_doi))
+
+%% code
+# The plan: everything the next steps need (with no research question: a prepared sample)
+if rw:
+    project = sp.project if rw.rewritten == RESEARCH_QUESTION else f"{sp.project} (Original question: {RESEARCH_QUESTION})"
+    plan = Plan(RESEARCH_QUESTION, sp.query, project, sp.literature_question, seed_doi, name=slug(RESEARCH_QUESTION)[:50])
+else:
+    plan = plan_search("")
+plan
+
+%% md
+**Check the plan.** Does the query capture your field, and is the seed paper a good anchor? If not, you can adjust the plan by hand before fetching, e.g. `plan.query = '("remote work" OR telework) AND productivity'` or `plan.seed_doi = "10.1257/jel.20160995"`. OpenAlex understands `AND`, `OR` and "quoted phrases".
+
+Optionally, add DOIs of **your own papers** (or the key papers your project builds on) to see where they sit on the map.
+
+%% code
+MY_PAPERS = []                                       # optional, e.g. ["10.1257/jep.29.3.3"]
+
+papers = topic_sample(plan.query, plan.seed_doi) if plan.query else load_topic(plan.prepared)
+name = plan.name
+seed = papers[papers.found_via.str.contains("seed")].iloc[0]
+mine = fetch_works(MY_PAPERS) if MY_PAPERS else pd.DataFrame(columns=["id"])
+papers = pd.concat([papers[~papers.id.isin(mine.id)], mine], ignore_index=True)
+focus = list(mine.id) or [seed.id]          # the papers we follow (ringed on the maps)
+print(f"{len(papers)} papers · seed: {seed.title} ({seed.short}, {seed.cited_by_count} citations)")
+sample_overview(papers)
+
+%% md
+### How this sample is built, and what that means
+
+The table above shows where your papers came from (rows) and when they were published (columns). The sample is built in four steps:
+
+| Step | What | Why | What it does to your map |
+| --- | --- | --- | --- |
+| 1. **Seed** | chosen by the LLM from the 15 most-cited matches (or your own `plan.seed_doi`) | an anchor that defines "the conversation" | everything is centred on one paper: a different seed gives a different map |
+| 2. **Forward** | the seed's references, plus the 400 most-cited papers that **cite** the seed | the debate the seed started | papers citing a 2019 seed are from 2019 onwards: this part is always *recent* |
+| 3. **Topic search, balanced by period** | the 200 most relevant articles (cited at least 5 times) **before 2010**, **2010–2017** and **from 2018** | the wider topic, not only the seed's followers | without balancing, the recent publication boom would crowd out older work |
+| 4. **Backward** | the 150 works most often cited by everything above | the **classics** the field builds on | shown separately as *foundations*, together with the seed's references; they are not used to draw the streams, because widely cited methods works would form fake "streams" |
+
+**Keep in mind:** this is a *neighbourhood* of your topic, not the whole field. Research published as books, in Chinese-language journals, or in journals OpenAlex covers poorly will be under-represented. Papers cited fewer than 5 times are left out of the search on purpose, because many are off-topic.
+
+%% md
+## Step 1 · What is in the corpus?
+
+Classic descriptive bibliometrics: growth over time, the main journals, and where the authors are. No AI involved yet.
+
+%% code
+per_year = papers[papers.year.between(1990, 2026)].groupby("year").size()
+fig, ax = plt.subplots()
+ax.bar(per_year.index.astype(int), per_year.values, color=COLORS[0], width=0.8)
+ax.set_title("Papers per year in the sample"); ax.set_ylabel("papers")
+plt.show()
+
+%% code
+venues = papers[papers.venue != ""].venue.value_counts().head(12).sort_values()
+fig, ax = plt.subplots(figsize=(7, 4.5))
+ax.barh(venues.index.str[:45], venues.values, color=COLORS[0], height=0.6)
+ax.set_title("Top journals and outlets"); ax.set_xlabel("papers")
+ax.grid(axis="x"); ax.grid(axis="y", visible=False)
+plt.show()
+
+%% code
+countries = papers.countries.str.split("; ").explode().replace("", pd.NA).dropna().value_counts().head(10)
+print("Author countries (a paper counts once per country):")
+countries
+
+%% md
+**The foundations:** the works your sample itself cites most often (the seed's references and the classics). These are the classics of your topic. Most are older than the papers in the map.
+
+%% code
+foundation_table(papers, n=12)
+
+%% md
+## Step 2 · The papers closest to your question
+
+The sample is the **field around** your question: hundreds of papers, most of them related, some only loosely. Which ones are **closest to what you asked**? Every paper's title and abstract becomes a meaning-vector (an *embedding*), and so does your project description. The **cosine similarity** between the two (from -1 to 1) says how close in meaning a paper is to your project. We rank all papers by it.
+
+Nothing is removed: the map in the next steps shows the whole field. This list is your starting point for reading.
+
+%% code
+topical = papers[is_topical(papers)].reset_index(drop=True)     # seed, citing papers, search hits, your papers
+V, how = paper_vectors(topical, name)                           # meaning-vectors (first run: ~30 s; then saved)
+topical["relevance"] = relevance(topical, V, plan.project, name)
+papers["relevance"] = papers.id.map(dict(zip(topical.id, topical.relevance)))
+print(f"meaning from: {how} · ranked against your project description")
+topical.nlargest(15, "relevance")[["relevance", "short", "title", "cited_by_count"]].round(2)
+
+%% md
+**Check the list.** Are these the papers you would expect? If the top looks off, the project description is probably too vague: edit `plan.project` and re-run this cell.
+
+## Step 3 · Build a network: citations plus meaning
+
+Two papers can be "close" in two ways:
+
+- **They cite the same works** (*bibliographic coupling*). Papers that build on the same literature are usually in the same conversation. This is the idea behind tools like VOSviewer and CiteSpace. Its weakness: papers that share no references can't be placed, which often hits older papers.
+- **They say similar things.** An *embedding model* turns each title and abstract into a meaning-vector, and we link each paper to its 15 most similar papers. (In dry-run mode a word-statistics method stands in for the AI model.)
+
+We combine both into one **hybrid network**: half citations, half meaning. Citations keep the streams anchored in who-builds-on-whom; meaning places every paper and keeps the streams topically coherent.
+
+%% code
+G = coupling_graph(topical, min_shared=2)
+print(f"citation links: {G.number_of_edges():,} · papers with at least one: {sum(1 for n in G if G.degree(n)) / len(G):.0%}")
+H = hybrid_graph(G, V, list(topical.id))
+print(f"meaning from: {how} · hybrid network: {H.number_of_edges():,} links, every paper placed")
+
+%% md
+## Step 4 · Find research streams (unsupervised clustering)
+
+**Louvain community detection** looks for groups of papers that are much more strongly linked to each other than to the rest. It is *unsupervised*: we don't tell it what the streams are, it finds them in the network.
+
+Two honest questions before trusting the result:
+
+1. **How many streams?** That depends on a setting called *resolution* (higher = more, smaller streams). Rather than pick one by taste, we try three and keep the one whose result is **most stable**.
+2. **Are they real?** Louvain starts from a random point, so we run it 20 times and keep only the groupings that keep coming back (*consensus clustering*). We report the **agreement between single runs** (0 = chance, 1 = identical every time) and each paper's **stability**: how often it lands with the rest of its stream. Papers with low stability sit on the boundary between streams.
+
+%% code
+resolution, tried = choose_resolution(H)
+print(f"chosen resolution: {resolution}")
+tried
+
+%% code
+clusters, stability, agreement = find_clusters(H, max_clusters=8, resolution=resolution, return_stability=True)
+papers["cluster"] = papers.id.map(clusters).fillna(-1).astype(int)   # classics: -1 (not mapped)
+papers["stability"] = papers.id.map(stability)
+print(f"single runs agree: {agreement:.2f} · median paper stability: {papers.stability.median():.2f} · "
+      f"boundary papers (stability < 0.6): {(papers.stability < 0.6).sum()}")
+papers[papers.cluster > 0].groupby("cluster").agg(papers=("id", "size"), stability=("stability", "mean"),
+                                                 median_year=("year", "median")).round(2).T
+
+%% md
+**How to read this:** agreement above about 0.8 means the field has a clear structure. Around 0.5 means the streams blur into each other: the map is still useful, but treat stream boundaries as fuzzy, and say so if you use it in your thesis. A stream with low average stability is less of a stream and more of a meeting point.
+
+## Step 5 · Let the LLM name the streams
+
+A researcher would name a stream by reading its key papers and asking *what sets it apart from the others*. We give the LLM exactly that, for **all streams at once**: each stream's most-cited titles, its most **distinctive words** (frequent in this stream, rare in the others), and its median year. Seeing them side by side, it can choose names that tell the streams apart. **You stay the judge:** check the names against the profiles.
+
+%% code
+profiles = stream_profiles(papers, "cluster")
+for k, p in profiles.items():
+    print(f"Stream {k} · {p['papers']} papers · median year {p['median_year']} · words: {', '.join(p['distinctive_words'])}")
+    print("   " + "\n   ".join(p["top_titles"][:4]))
+
+%% code
+class StreamName(BaseModel):
+    stream: int
+    label: str = Field(description="A short, specific name, 2 to 6 words, that sets this stream apart from the others")
+    description: str = Field(description="One sentence: what these papers study, and how they differ from the other streams")
+
+class StreamNames(BaseModel):
+    streams: list[StreamName]
+
+INSTR = ("Below are the research streams of a bibliometric map of one field. Name every stream. The names must be "
+         "clearly DIFFERENT from each other: use the distinctive words and the period, not generic labels.")
+r = extract(json.dumps(profiles, ensure_ascii=False, indent=1), StreamNames, INSTR)
+named = {s.stream: s for s in r.data.streams} if r.data else {}
+names = {k: named[k].label if k in named else f"Stream {k}" for k in profiles}
+pd.DataFrame({"stream": names, "description": {k: named[k].description if k in named else "" for k in profiles}})
+
+%% md
+## Step 6 · The map
+
+Each dot is a paper. Close together means "cites the same literature and says similar things". Colour is the stream, size is citations. On top of that we mark three things:
+
+- **★ Your question**, placed on the most central of the 10 papers closest to it in meaning (Step 2).
+- **Black outline:** the 15 papers closest to your question. Are they in one stream, or spread over several?
+- **◇ Foundational papers:** the papers on the map that the field itself cites most often. (Older classics that are cited but not part of the topic, Step 1's foundations table, are not on the map.)
+
+The large ring is the seed paper (or your own papers).
+
+%% code
+mapped = [n for n in H if clusters.get(n, -1) >= 0]
+pos = layout(H, mapped)
+closest_15 = list(papers[papers.id.isin(pos)].nlargest(15, "relevance").id)
+foundational = most_cited_by_sample(papers, pos, n=10)
+draw_map(papers, H, pos, names, f"Research streams around '{seed.title[:60]}'", highlight=focus,
+         closest=closest_15, foundations=foundational, question="Your question")
+
+%% md
+## Step 7 · How do the streams develop over time?
+
+Which streams are older and which are newer? We show each stream's **share** of the mapped papers per year (from 2000 to 2024; 2025 is still incomplete). We use shares, not counts: the number of papers grows every year in every field, and part of the sample is recent by design (Step 0), so raw counts would mostly show that.
+
+%% code
+recent = papers[(papers.cluster > 0) & papers.year.between(2000, 2024)]
+share = recent.groupby(["year", "cluster"]).size().unstack(fill_value=0)
+share = share.div(share.sum(axis=1), axis=0).rolling(3, min_periods=1).mean()     # 3-year moving average
+fig, ax = plt.subplots(figsize=(8, 4.2))
+ax.stackplot(share.index.astype(int), share.T.values, colors=[cluster_color(k) for k in share.columns],
+             labels=[names.get(k, k) for k in share.columns], edgecolor="#fcfcfb", linewidth=0.5)
+ax.set_title("Each stream's share of the mapped papers per year"); ax.set_ylabel("share"); ax.set_ylim(0, 1)
+ax.legend(loc="upper left", bbox_to_anchor=(1, 1), frameon=False, fontsize=8)
+plt.show()
+
+%% md
+**How to read it:** a band that widens over time is a stream that is growing *relative to the others*. Years with few papers (usually the early ones; see the table in Step 0) jump around, so don't over-interpret them.
+
+%% md
+## Step 8 · A second, independent clustering: by words
+
+Citations are one way to group papers; **the words they use** are another. Here we group the same papers using only their titles and abstracts (TF-IDF word weights and k-means; no citations, no LLM). Then we compare: do the two methods find the same streams?
+
+%% code
+text = (papers.title + ". " + papers.abstract).tolist()
+papers["text_cluster"], top_words = text_clusters(text, k=6)
+for j, words in enumerate(top_words, 1):
+    print(f"Word cluster {j} ({(papers.text_cluster == j).sum()} papers): {words}")
+
+%% code
+both = papers[papers.cluster > 0]
+table = pd.crosstab(both.cluster.map(names), both.text_cluster.map(lambda j: f"W{j}: {top_words[j - 1].split(', ')[0]}"))
+plot_heatmap(table, "Citation streams (rows) vs word clusters (columns)", "word cluster", "citation stream")
+
+%% md
+**How to read it:** a row with one dark cell means the citation stream and a word cluster agree. A row spread over several columns means papers that cite the same literature talk about it in different words, or the other way round. Neither method is "right": they measure different kinds of closeness. Agreement between independent methods is a good sign, and disagreement is worth reading.
+
+## Step 9 · Code the abstracts with a codebook
+
+Now the Session 1 tool: a codebook applied to abstracts. We take the 6 most-cited papers with an abstract from each stream (about 40 calls) and code method, data and level of analysis. Then we ask: **do the streams differ in how they do research?**
+
+%% code
+class StudyCode(BaseModel):
+    method: Literal["quantitative", "qualitative", "mixed", "theory/model", "review"]
+    data: Literal["survey", "administrative/official", "firm/financial", "patents", "interviews/cases",
+                  "experiment", "text/online", "none/other"]
+    level: Literal["individual", "firm", "industry/region", "country", "multi-country"]
+    finding: str = Field(description="The main finding in one short sentence")
+    evidence_quote: str = Field(description="A phrase of 3 to 12 words copied word for word from the abstract")
+
+sample = (papers[(papers.cluster > 0) & (papers.abstract.str.len() > 200)]
+          .sort_values("cited_by_count", ascending=False).groupby("cluster").head(6))
+coded = extract_many(sample, "abstract", StudyCode, "Code this research abstract. Use only what the abstract says.")
+ok = coded[coded.error.isna()].assign(stream=lambda d: d.cluster.map(names))
+print(f"coded {len(ok)} of {len(sample)} · quotes not found in the abstract: "
+      f"{sum(not quote_check(q, a) for q, a in zip(ok.evidence_quote, ok.abstract))}")
+
+%% code
+plot_heatmap(pd.crosstab(ok.stream, ok.method), "Research method by stream (6 top papers each)", "method", "")
+ok[["short", "stream", "method", "data", "level", "finding"]].head(12)
+
+%% md
+## Step 10 · Chat with the literature (RAG)
+
+Ask the field a question in plain language. This is **retrieval-augmented generation (RAG)**, the technique behind most "chat with your documents" tools, in three visible parts.
+
+**Part 1 · Questions.** No idea what to ask? The LLM drafts 5 questions from your project description and the field's streams. Pick one, or type your own.
+
+%% code
+lit = topical.merge(papers[["id", "cluster"]], on="id", how="left").assign(stream=lambda d: d.cluster.map(names))
+ideas = suggest_questions(plan.project, names)
+for i, q in enumerate(ideas):
+    print(f"ideas[{i}]  {q}")
+
+%% code
+QUESTION = ideas[0]   # pick another idea, e.g. ideas[2], or type your own: QUESTION = "..."
+
+%% md
+**Part 2 · Retrieval.** Turn the question into a meaning-vector and find the papers closest to it (the same embeddings as Step 2). Some papers, often older classics, have **no abstract** in OpenAlex. They are still listed here, matched on their title only, because they may be exactly what you need to read yourself.
+
+%% code
+hits = retrieve(lit, V, QUESTION, name, k=15)
+print(f"{(~hits.has_abstract).sum()} of the {len(hits)} closest papers have no abstract (matched on title only)")
+hits[["short", "stream", "similarity", "has_abstract", "title"]]
+
+%% md
+**Part 3 · Answer.** The LLM can only use text it is given, so it gets the **8 closest papers that have an abstract**, plus your question. It must cite every claim as [ID], and we then check that every cited ID was among the 8. An answer that cites anything else is invented.
+
+The answer is built from **abstracts only**, not full papers. Classics without an abstract from Part 2 are left out of it, so read those yourself.
+
+%% code
+answer, sources = ask_literature(lit, V, QUESTION, name, k=8)
+display(Markdown(answer))
+sources[["short", "stream", "similarity", "cited_in_answer", "title"]]
+
+%% md
+**Try:** ask something the field *doesn't* cover (e.g. *"What does this literature say about Antarctica?"*). A good answer says the sources don't answer it. Then ask in everyday words instead of the field's jargon: does retrieval still find the right papers?
+
+%% md
+## Step 11 · Where does *your* project sit?
+
+Describe your own project in two or three sentences. We take the papers closest in meaning to your description (Step 2), and see which streams they belong to. This is a first answer to the question every supervisor asks: *which conversation are you joining?*
+
+%% code
+MY_PROJECT = plan.project                # from your search plan (Step 0), or describe your project in your own words
+my_rel = dict(zip(topical.id, relevance(topical, V, MY_PROJECT, name)))   # closeness in meaning to YOUR description
+closest = papers.assign(r=papers.id.map(my_rel)).nlargest(10, "r").assign(stream=lambda d: d.cluster.map(names).fillna("not on the map"))
+print("Your project is closest to:", closest.stream.value_counts().to_dict())
+closest[["short", "stream", "title", "cited_by_count"]]
+
+%% md
+And your own papers (or the seed paper if you added none): which stream does each belong to, and which papers have the most similar reference lists? Those are the papers you are already in conversation with, whether you cite them or not.
+
+%% code
+for pid in focus:
+    me = papers[papers.id == pid].iloc[0]
+    print(f"{me.title[:90]}\n   stream: {names.get(clusters.get(pid, -1), 'not linked to the map')}")
+    for other, d in sorted(G[pid].items(), key=lambda kv: -kv[1]["weight"])[:6]:
+        o = papers[papers.id == other].iloc[0]
+        print(f"   similarity {d['weight']:.2f} ({d['shared']} shared refs) · {o.short:<16} {o.title[:70]}")
+
+%% md
+## Step 12 · Your reading list, ready for Zotero
+
+For each stream, the **classics** (most cited ever) and the **rising papers** (most citations per year, published in the last five years). Rising papers show where a stream is going; they are often missing from older reviews. The RIS file imports into Zotero, EndNote or Mendeley (**File ▸ Import**), with each paper tagged by its stream.
+
+%% code
+reading = reading_list(papers, names, n_classic=3, n_rising=3)
+ris = export_ris(reading, pathlib.Path("../outputs") / f"reading_list_{name}.ris")
+print(f"{len(reading)} papers saved to outputs/{ris.name}")
+reading[["stream", "role", "short", "title", "cited_by_count"]]
+
+%% md
+## Step 13 · Bridge papers
+
+Some papers sit **between** two streams: they cite both literatures. They are worth reading closely. They show how others have connected the debates, and a thesis often makes its contribution in exactly such a gap.
+
+%% code
+bridges(papers, G, names, n=8)[["short", "from", "to", "title", "cited_by_count"]]
+
+%% md
+## Step 14 · Take it with you: an interactive map and a table
+
+The HTML file is self-contained: no internet needed, so it works anywhere, including offline in class. Open it in your browser (double-click it in `outputs/`) to hover, search, filter streams and click through to papers. The CSV opens in Excel, Stata or R.
+
+%% code
+out = export_html(papers, H, pos, names, pathlib.Path("../outputs") / f"field_map_{name}.html",
+                  f"Research streams around '{seed.title[:70]}'", highlight=focus)
+papers.assign(stream=papers.cluster.map(names)).drop(columns=["refs"]).to_csv(
+    f"../outputs/field_{name}.csv", index=False, encoding="utf-8-sig")
+json.dump({"name": name, "project": MY_PROJECT, "research_question": plan.question, "query": plan.query},
+          open("../outputs/last_field.json", "w", encoding="utf-8"), ensure_ascii=False)   # notebook 09 starts here
+print("saved", out.name, "and", f"field_{name}.csv", "in outputs/")
+
+%% md
+## What to take away
+
+- **Structure first, LLM second.** The streams come from citation behaviour: transparent, reproducible, no AI. The LLM *names* and *codes* them, and each of those steps can be checked.
+- **Check every LLM step:** labels against the top titles, codes with verbatim quotes, answers against the sources they cite.
+- **Two methods beat one.** Where citation and word clusterings agree, trust the structure more.
+- **Know your sample.** One seed paper plus a search is a *neighbourhood*, not the whole field, and OpenAlex misses some journals and books. Who is missing? Try different search words and seeds, and compare.
+- **For your thesis:** the reading list, the bridge papers and the method-by-stream table are a head start on your literature review. They are not a substitute for reading the papers.
+
+## Try it yourself
+
+- Put **your own research question** in `RESEARCH_QUESTION` (Step 0) and re-run everything.
+- Change `max_clusters` or `min_shared` in Steps 3–4, or the `resolution` (below). How stable are the streams?
+- Ask your own `QUESTION` in Step 9, and describe your own project in Step 10.
+
+%% code
+# Your turn: how many streams are there "really"? Resolution is the knob (higher = more, smaller streams)
+for res in [0.4, 0.6, 1.0, 1.5]:
+    c = find_clusters(H, max_clusters=20, resolution=res, runs=5)
+    print(f"resolution {res}: {len({k for k in c.values() if k > 0})} streams of 15+ papers")
+
+%% code
+# Your turn: a different question to the literature
+QUESTION = "Which methods are used to measure exposure of occupations to AI?"
+search(papers, QUESTION, k=5)[["short", "title", "cluster", "score"]]

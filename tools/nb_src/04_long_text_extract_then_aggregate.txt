@@ -1,0 +1,112 @@
+%% md
+# 04 · Long documents: extract first, then aggregate
+
+> **Old question:** How do we compare long, unstructured documents, such as the eligibility rules of 30 clinical trials, without reading them all?
+> **New tool:** an LLM that turns each long text into a few structured fields, followed by ordinary counting and plotting.
+> **What you'll see:** 30 messy eligibility sections become one tidy table, a histogram of minimum ages, the most common exclusions, and a check against the registry's own data.
+
+%% md
+## Why two steps?
+
+You *could* paste all 30 documents into one prompt and ask "what are the most common exclusions?". The answer would be hard to check, would change from run to run, and would hit length limits. The robust pattern is:
+
+1. **Extract**: one call per document, a small fixed set of fields;
+2. **Aggregate**: count, average and plot with normal code, where every number can be traced back to a row.
+
+The same pattern works for annual reports, policy documents, interview transcripts or job ads.
+
+%% code
+import sys, pathlib
+sys.path.insert(0, str(pathlib.Path.cwd().parent))
+import pandas as pd
+import matplotlib.pyplot as plt
+from pydantic import BaseModel, Field
+from workshop import *
+
+setup_plots()
+trials = pd.read_csv("../data/trials.csv")
+print(len(trials), "trials · median eligibility text:", int(trials.eligibility_text.str.len().median()), "characters")
+
+%% md
+Here is what one eligibility section looks like:
+
+%% code
+print(trials.title[0], "\n")
+print(trials.eligibility_text[0][:1500], "...")
+
+%% md
+## Step 1 · The extraction codebook
+
+`int | None` means "a whole number, or empty if the text does not say". Lists let one trial have several exclusions.
+
+%% code
+class Eligibility(BaseModel):
+    min_age: int | None = Field(description="Minimum age in years; null if not stated")
+    max_age: int | None = Field(description="Maximum age in years; null if there is no upper limit")
+    conditions_excluded: list[str] = Field(
+        description="Medical conditions that exclude a patient, as short generic names in lower case, "
+                    "e.g. 'pregnancy', 'cancer', 'liver disease', 'heart failure'. At most 8.")
+    requires_prior_treatment: bool = Field(description="True if patients must have received a previous treatment")
+
+INSTRUCTIONS = "Extract the eligibility rules of this clinical trial. Use only what the text says."
+
+%% code
+elig = extract_many(trials, "eligibility_text", Eligibility, INSTRUCTIONS)
+ok = elig[elig["error"].isna()]   # rows that were coded successfully
+print("failed rows:", len(elig) - len(ok))
+ok[["nct_id", "min_age", "max_age", "requires_prior_treatment", "conditions_excluded"]].head(8)
+
+%% md
+## Step 2 · Aggregate
+
+%% code
+fig, ax = plt.subplots()
+ax.hist(ok["min_age"].dropna(), bins=range(0, 70, 5), color=COLORS[0], edgecolor="#fcfcfb", linewidth=2)
+ax.set_title("Minimum age to join the trial (30 trials)")
+ax.set_xlabel("minimum age (years)"); ax.set_ylabel("number of trials")
+plt.show()
+
+%% code
+exclusions = ok["conditions_excluded"].explode().dropna().astype(str).str.lower().str.strip()
+top = exclusions.value_counts().head(12).sort_values()
+fig, ax = plt.subplots(figsize=(7, 4.5))
+ax.barh(top.index, top.values, color=COLORS[0], height=0.6)
+ax.set_title("Most common exclusion criteria")
+ax.set_xlabel("number of trials"); ax.grid(axis="x"); ax.grid(axis="y", visible=False)
+plt.show()
+
+%% code
+share = ok["requires_prior_treatment"].astype(float).mean()
+print(f"{share:.0%} of trials require a previous treatment")
+print(f"{exclusions.nunique()} different exclusion labels in total")
+
+%% md
+Notice how many *different* exclusion labels there are. "Pregnancy", "pregnant or breastfeeding" and "pregnant women" count separately. Making categories consistent is a rewriting task (see notebook 05), or you can give the model a fixed list of categories to choose from.
+
+## Step 3 · Check against the registry
+
+ClinicalTrials.gov also stores a structured minimum age for each trial. We never showed it to the model, so it is a free validation check of the extraction.
+
+%% code
+registry = trials["registry_min_age"].str.extract(r"(\d+)")[0].astype(float)
+check = pd.DataFrame({"nct_id": trials.nct_id, "llm_min_age": elig["min_age"], "registry_min_age": registry})[elig["error"].isna()]
+check["match"] = check.llm_min_age == check.registry_min_age
+print(f"LLM minimum age matches the registry in {check.match.mean():.0%} of trials")
+check[~check.match]
+
+%% md
+Mismatches are worth reading: sometimes the model is wrong, and sometimes the free text and the registry entry really disagree.
+
+%% code
+pathlib.Path("../outputs").mkdir(exist_ok=True)
+elig.drop(columns=["eligibility_text"]).to_csv("../outputs/trial_eligibility.csv", index=False)
+print("saved outputs/trial_eligibility.csv")
+
+%% md
+## Try it yourself
+
+Add a field to `Eligibility`, for example `pregnancy_excluded: bool`, or `min_bmi: float | None`. Then re-run Step 1 on the first 5 trials only, to save API calls:
+
+%% code
+# Your turn: edit Eligibility above, re-run it, then run this cell
+extract_many(trials.head(5), "eligibility_text", Eligibility, INSTRUCTIONS).drop(columns="eligibility_text")

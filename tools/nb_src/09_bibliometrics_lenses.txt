@@ -1,0 +1,152 @@
+%% md
+# 09 · Add-on: more lenses on your field
+
+> **Old question:** Beyond the map of research streams: where are the gaps, what are the field's schools of thought, what is new, and who does the work?
+> **New tool:** AI embeddings, co-citation analysis, trend detection, and an LLM-drafted field memo with checked citations.
+> **What you'll take home:** "hidden connections" between literatures, the field's schools of thought, emerging themes, who publishes where, and a one-page field memo.
+
+**Run notebook 08 first.** This notebook continues with the field 08 mapped last: same papers, same research streams, same project description. Each lens stands on its own: pick the ones useful to you.
+
+%% code
+import sys, pathlib, re, json
+sys.path.insert(0, str(pathlib.Path.cwd().parent))
+import pandas as pd
+import matplotlib.pyplot as plt
+from IPython.display import Markdown, display
+from pydantic import BaseModel, Field
+from workshop import *
+from workshop.biblio import *
+
+setup_plots()
+status()
+
+%% code
+settings = json.load(open("../outputs/last_field.json", encoding="utf-8"))   # written by notebook 08
+name = settings["name"]
+MY_PROJECT = settings["project"]           # your project description from notebook 08; or write your own
+papers, names = load_field(name)           # the field notebook 08 mapped last
+papers = papers[is_topical(papers)].reset_index(drop=True)   # the same papers 08 embedded and mapped (no classics)
+G_cite = coupling_graph(papers)            # the citation network, rebuilt (a few seconds)
+V, how = paper_vectors(papers, name)       # meaning-vectors (saved by notebook 08, so no new embedding calls)
+print(len(papers), "papers ·", len(names), "research streams from notebook 08 · meaning from:", how)
+pd.Series(names, name="stream").to_frame()
+
+%% md
+## Lens 1 · Hidden connections
+
+Pairs of papers that are **very close in meaning** but **share no references** and sit in **different streams**: two literatures studying the same thing without talking to each other. Broad "impact of AI on everything" papers are close to *everything*, so the score corrects for how central each paper is. Such pairs are often where a new contribution can be made: *"literature A and literature B both study X but never cite each other"*.
+
+%% code
+hidden_connections(papers, V, G_cite, n=8)[["similarity", "paper_a", "stream_a", "title_a", "paper_b", "stream_b", "title_b"]]
+
+%% md
+## Lens 2 · Schools of thought (co-citation)
+
+Notebook 08 mapped the **current** papers. Co-citation maps their **foundations**: two older works are linked when the same papers cite them *together*. Works that are often cited together form the field's "schools of thought", its shared building blocks. We take the 150 works the corpus cites most. Their titles come from OpenAlex once and are then saved; offline, only works already in the sample are shown.
+
+%% code
+CC, refs = foundations(papers, name, top=150)   # refs.cited_by_count = how often THIS field cites the work
+schools = find_clusters(CC, max_clusters=6, min_size=5)
+refs["cluster"] = refs.id.map(schools)
+print(f"{len(refs)} foundational works · schools: {refs.cluster.value_counts().sort_index().to_dict()}")
+
+%% md
+The LLM names **all schools at once**, so it can give them names that tell them apart. (The seed paper usually tops its school: every paper sampled because it *cites the seed* counts towards it.)
+
+%% code
+class SchoolName(BaseModel):
+    school: int
+    label: str = Field(description="A short, specific name, 2 to 6 words, that sets this school apart from the others")
+
+class SchoolNames(BaseModel):
+    schools: list[SchoolName]
+
+listing = "\n\n".join(f"SCHOOL {k}:\n" + "\n".join(f"- {t} ({y})" for t, y in zip(g.title, g.year))
+                       for k, g in ((k, refs[refs.cluster == k].nlargest(10, "cited_by_count"))
+                                    for k in sorted(c for c in refs.cluster.unique() if c > 0)))
+r = extract(listing, SchoolNames, "These are schools of thought in one field: groups of works that are often cited "
+            "together. Name every school. The names must be clearly DIFFERENT from each other and say what sets each apart.")
+got = {x.school: x.label for x in r.data.schools} if r.data else {}
+school_names = {k: got.get(k, f"School {k}") for k in sorted(c for c in refs.cluster.unique() if c > 0)}
+
+draw_map(refs, CC, layout(CC, [n for n in CC if schools[n] >= 0]), school_names, "The field's foundations: works cited together")
+for k, nm in school_names.items():
+    top = refs[refs.cluster == k].nlargest(4, "cited_by_count")
+    print(f"{nm}: " + " · ".join(f"{s} ({c}×)" for s, c in zip(top.short, top.cited_by_count)))
+
+%% md
+## Lens 3 · What is emerging?
+
+Words and two-word phrases whose share of papers grew most from 2015–2020 to 2023–2025. These are candidate new themes, and possible places for a new contribution. (Generic words such as "crucial" or "enhancing" are filtered out: they reflect changes in writing style, not in research.)
+
+%% code
+em = emerging_terms(papers, recent=(2023, 2025), base=(2015, 2020), n=15)
+fig, ax = plt.subplots(figsize=(7, 4.8))
+ax.barh(em.term[::-1], em.recent_share[::-1], color=COLORS[0], height=0.6, label="2023–2025")
+ax.barh(em.term[::-1], em.earlier_share[::-1], color=GREY, height=0.6, label="2015–2020")
+ax.set_title("Emerging terms: share of papers using them"); ax.set_xlabel("share of papers")
+ax.legend(frameon=False); ax.grid(axis="x"); ax.grid(axis="y", visible=False)
+plt.show()
+
+%% md
+## Lens 4 · Who does the research, and where is it published?
+
+Which countries work in which stream, who are the most active authors, and which journals publish each stream? This helps answer practical PhD questions: *whose work should I follow, who might I visit, and where could I publish?*
+
+%% code
+ctry = papers[papers.cluster > 0].assign(country=papers.countries.str.split("; ")).explode("country")
+ctry = ctry[ctry.country != ""]
+top_c = ctry.country.value_counts().head(10).index
+share = pd.crosstab(ctry.stream, ctry.country, normalize="index")[top_c] * 100
+plot_heatmap(share, "Author countries by stream (% of each stream's author-country links)", fmt="{:.0f}")
+
+%% code
+rows = []
+for k, nm in names.items():
+    g = papers[papers.cluster == k]
+    authors = g.authors.str.split("; ").explode().replace("", pd.NA).dropna().value_counts().head(3)
+    venues = g[g.venue != ""].venue.value_counts().head(3)
+    rows.append({"stream": nm, "most active authors": ", ".join(authors.index),
+                 "main journals": " · ".join(venues.index.str[:60])})
+pd.DataFrame(rows)
+
+%% md
+## Lens 5 · A one-page field memo, with checked citations
+
+Finally, the LLM drafts a short memo from everything above: the streams and their key papers, emerging terms, and where your project sits. It may only cite papers by their ID, and **we check every ID**. Treat the memo as a first draft to discuss with your supervisor, not as a finding.
+
+%% code
+lines = []
+for k, nm in names.items():
+    top = papers[papers.cluster == k].nlargest(5, "cited_by_count")
+    lines.append(f"STREAM '{nm}' ({(papers.cluster == k).sum()} papers): " + "; ".join(f"[{i}] {t[:90]} ({y})" for i, t, y in zip(top.id, top.title, top.year)))
+close = semantic_search(papers, V, MY_PROJECT, name, k=6)
+context = ("\n".join(lines) + "\n\nEMERGING TERMS: " + ", ".join(em.term) + "\n\nMY PROJECT: " + MY_PROJECT +
+           "\n\nPAPERS CLOSEST TO MY PROJECT: " + "; ".join(f"[{i}] {t[:90]}" for i, t in zip(close.id, close.title)))
+memo = chat("Write a one-page field memo for a PhD student, in Markdown, with sections: The field in brief; Research streams; "
+            "Where my project sits; Possible gaps; Read first. Cite papers ONLY as [ID] using IDs from the context. "
+            "Be concrete and modest; say when the context is not enough.\n\n" + context)
+
+%% code
+cited = set(re.findall(r"W\d+", memo))
+print(f"memo cites {len(cited)} papers · not in the corpus (invented): {sorted(cited - set(papers.id)) or 'none'}")
+pathlib.Path(f"../outputs/field_memo_{name}.md").write_text(memo, encoding="utf-8")
+display(Markdown(memo))
+
+%% md
+## What to take away
+
+- **One field, many structures.** Citations, meaning, foundations, time and people each show something different. Where lenses agree, the structure is solid; where they disagree, look closer.
+- **Embeddings are powerful and opaque.** They find papers that say the same thing in other words, but you can't see *why* two vectors are close. Always read the papers.
+- **The memo is a draft.** Every citation in it was checked to exist in the corpus, but not that the paper says what the memo claims. That part is your job.
+
+## Try it yourself
+
+- Check one "hidden connection" (Lens 1): do the two papers really study the same thing, and do they really not cite each other's literature?
+- Rewrite `MY_PROJECT` and re-run the memo: does "Where my project sits" change?
+
+%% code
+# Your turn: which foundational works does YOUR closest stream rely on most?
+my_stream = semantic_search(papers, V, MY_PROJECT, name, k=10).stream.mode()[0]
+ids = set(papers[papers.stream == my_stream].refs.explode())
+refs[refs.id.isin(ids)].nlargest(8, "cited_by_count")[["short", "title", "cited_by_count"]]

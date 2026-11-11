@@ -1,0 +1,76 @@
+%% md
+# 07 · Your data
+
+> **Old question:** Could this work on *my* texts?
+> **New tool:** the same three steps as notebook 01: load a CSV, write a codebook, run.
+> **What you'll see:** your own texts turned into a coded table, saved as a CSV you can open in Excel, Stata or R.
+
+%% md
+## Step 1 · Load your file
+
+Your CSV needs two columns: `id` and `text`. Put it in the `data/` folder and change the file name below. To start, we use `my_data_example.csv`: ten short, **synthetic** sentences about firms and work.
+
+**Before you upload anything:** with a live API, your texts are sent to the provider. Do not use confidential or personal data unless your data agreement allows it. In dry-run mode nothing leaves your laptop.
+
+%% code
+import sys, pathlib
+sys.path.insert(0, str(pathlib.Path.cwd().parent))
+from typing import Literal
+import pandas as pd
+from pydantic import BaseModel, Field
+from workshop import *
+
+status()
+my_data = pd.read_csv("../data/my_data_example.csv")   # <- change the file name
+print(len(my_data), "rows"); my_data.head()
+
+%% md
+## Step 2 · Write your codebook
+
+Edit the class below. A few tips:
+
+- one field per variable, with a **description** written like a coding instruction;
+- use `Literal["a", "b", "c"]` for closed categories, `bool` for yes/no, `int | None` for numbers that may be missing;
+- keep an `evidence_quote` so you can check the answers with `quote_check`.
+
+%% code
+class MyCode(BaseModel):
+    topic: Literal["work & labour", "trade & policy", "innovation & R&D", "finance", "other"]
+    actor: str = Field(description="The main firm, group or institution acting in the text, in 1-4 words")
+    tone: Literal["positive", "negative", "mixed", "neutral"] = Field(description="How the outcome is described")
+    mentions_technology: bool = Field(description="True if a technology plays a role")
+    evidence_quote: str = Field(description="A short phrase copied word for word from the text that supports the topic")
+
+INSTRUCTIONS = "You are coding short research texts. Fill in every field using only the text."
+
+%% md
+## Step 3 · Test on 3 rows, then run everything
+
+Always test on a few rows first, then read the answers before spending calls on the full file.
+
+%% code
+test = extract_many(my_data.head(3), "text", MyCode, INSTRUCTIONS)
+test
+
+%% code
+coded = extract_many(my_data, "text", MyCode, INSTRUCTIONS)
+coded["quote_ok"] = [quote_check(q, t) for q, t in zip(coded["evidence_quote"], coded["text"])]
+print(f"failed rows: {coded.error.notna().sum()} · quotes not found in text: {(~coded.quote_ok).sum()}")
+coded
+
+%% code
+pathlib.Path("../outputs").mkdir(exist_ok=True)
+coded.to_csv("../outputs/my_data_coded.csv", index=False, encoding="utf-8-sig")  # utf-8-sig opens cleanly in Excel
+print("saved outputs/my_data_coded.csv")
+
+%% md
+## Try it yourself
+
+- Add a variable to `MyCode` and re-run Step 3.
+- Run the coding twice with `temperature=0.7` (as in notebook 02) and compare. Which of your variables are least stable?
+- Hand-code 20 rows yourself and compare. That is exactly what Session 2 is about.
+
+%% code
+# Your turn: a second run at a higher temperature, compared with the first
+again = extract_many(my_data, "text", MyCode, INSTRUCTIONS, temperature=0.7)
+print(f"topic agreement between runs: {(again.topic == coded.topic).mean():.0%}")

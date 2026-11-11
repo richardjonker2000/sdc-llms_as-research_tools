@@ -1,0 +1,132 @@
+%% md
+# 06 · Bonus: which work tasks could an AI patent perform?
+
+> **Old question:** Which occupations are exposed to new technologies? (Webb, 2020, linked patent text to O\*NET tasks.)
+> **New tool:** an LLM that reads a patent and picks, from a shortlist, the work tasks the invention could do.
+> **What you'll see:** 10 AI patents and 10 other patents matched to 40 tasks, the matches in full, a summary by occupation, and a cross-check against notebook 02's exposure labels.
+
+**This is an illustration, not a replication.** Webb's method matches verb–object pairs across *all* patents and tasks, with careful weighting. Here we use 20 patents, 40 tasks and one prompt, to show the shape of the idea.
+
+%% code
+import sys, pathlib
+sys.path.insert(0, str(pathlib.Path.cwd().parent))
+from typing import Literal
+import pandas as pd
+import matplotlib.pyplot as plt
+from pydantic import BaseModel, Field
+from workshop import *
+
+setup_plots()
+patents = pd.read_csv("../data/patents.csv")
+tasks = pd.read_csv("../data/onet_tasks.csv")
+shortlist = tasks.merge(pd.read_csv("../data/gold_onet.csv")[["task_id", "label"]], on="task_id")
+print(len(shortlist), "tasks from", shortlist.occupation_title.nunique(), "occupations")
+
+%% md
+## Step 1 · Pick 10 AI patents and 10 others
+
+If you ran notebook 01, the AI patents are the ones the LLM coded as AI. Otherwise we use the patent class for machine learning (CPC G06N). The comparison group is 10 patents from outside that class.
+
+%% code
+codes = pathlib.Path("../outputs/patent_codes.csv")
+ai_ids = pd.read_csv(codes).query("is_ai == True").id if codes.exists() else []
+ai = patents[patents.id.isin(ai_ids)]
+if len(ai) < 10:
+    ai = pd.concat([ai, patents[patents.cpc_subclass.eq("G06N") & ~patents.id.isin(ai.id)]])
+ai = ai.head(10)
+other = patents[~patents.id.isin(ai.id) & patents.cpc_subclass.ne("G06N")].head(10)
+ai[["id", "title", "assignee"]]
+
+%% md
+## Step 2 · The matching codebook
+
+The allowed answers are exactly the IDs on the shortlist (`Literal[...]`), so the model cannot invent a task. The full task list goes into the instructions, so every patent is judged against the same 40 tasks.
+
+%% code
+TaskId = Literal[tuple(int(t) for t in shortlist.task_id)]
+
+class TaskMatch(BaseModel):
+    task_ids: list[TaskId] = Field(description="IDs of the tasks this invention could perform or substantially "
+                                               "help with. An empty list if none.")
+
+task_list = "\n".join(f"{r.task_id}: {r.task}" for r in shortlist.itertuples())
+INSTRUCTIONS = f"Read the patent abstract. Which of these work tasks could the invention perform or substantially help with?\n\nTASKS:\n{task_list}"
+
+%% code
+def as_list(x):
+    return x if isinstance(x, list) else []   # failed rows count as "no matches"
+
+m_ai = extract_many(ai, "abstract", TaskMatch, INSTRUCTIONS).assign(group="AI patents")
+m_other = extract_many(other, "abstract", TaskMatch, INSTRUCTIONS).assign(group="other patents")
+matches = pd.concat([m_ai, m_other])
+matches["task_ids"] = matches["task_ids"].apply(as_list)
+print("failed rows:", matches.error.notna().sum())
+
+%% md
+## Step 3 · Read the matches
+
+Before summarising anything, look at what the model actually matched. Do the matches make sense to you?
+
+%% code
+task_text = shortlist.set_index("task_id")["task"]
+for r in m_ai.assign(task_ids=m_ai.task_ids.apply(as_list)).itertuples():
+    print(f"{r.title[:100]}  ({r.assignee})")
+    for t in r.task_ids:
+        print(f"   → {task_text[t]}")
+    print("   → (no tasks matched)\n" if not r.task_ids else "")
+
+%% md
+## Step 4 · AI patents vs other patents
+
+Do AI patents match more of these tasks than other patents, such as a battery or a connector? If the difference is small, either the inventions are less task-specific than we assumed, or the matching is too generous for non-AI patents. Step 3's printout helps you tell which.
+
+%% code
+per_patent = matches.groupby("group")["task_ids"].apply(lambda s: s.str.len().mean())
+fig, ax = plt.subplots(figsize=(5.5, 3.2))
+ax.bar(per_patent.index, per_patent.values, color=[COLORS[0], GREY], width=0.55)
+for i, v in enumerate(per_patent.values):
+    ax.text(i, v + 0.05, f"{v:.1f}", ha="center")
+ax.set_title("Tasks matched per patent"); ax.set_ylabel("average number of tasks")
+plt.show()
+
+%% md
+## Step 5 · From patents to occupations
+
+For each occupation: what share of its shortlisted tasks did at least one of the 10 AI patents match?
+
+%% code
+hit = set(m_ai.task_ids.apply(as_list).explode().dropna().astype(int))
+shortlist["matched"] = shortlist.task_id.isin(hit)
+by_occ = shortlist.groupby("occupation_title")["matched"].mean().sort_values()
+fig, ax = plt.subplots(figsize=(7, 5))
+ax.barh(by_occ.index, by_occ.values, color=COLORS[0], height=0.6)
+ax.set_title("Share of each occupation's tasks matched by 10 AI patents")
+ax.set_xlabel("share of shortlisted tasks matched (illustration only)")
+ax.set_xlim(0, 1); ax.grid(axis="x"); ax.grid(axis="y", visible=False)
+plt.show()
+
+%% md
+## Step 6 · Cross-check with the exposure labels
+
+Notebook 02 rated each task's exposure to *language models* directly (the reference labels in `gold_onet.csv`). The patent route is a different way to measure exposure. It asks what *patented AI inventions* could do. Do the two agree? If they measure the same thing, tasks rated **high** should be matched more often than tasks rated **low**.
+
+%% code
+check = shortlist.groupby("label")["matched"].agg(["sum", "size", "mean"]).reindex(["high", "medium", "low"])
+check.columns = ["tasks matched", "tasks", "share matched"]
+check.round(2)
+
+%% md
+Don't be surprised if they **don't** agree. Patented AI is mostly prediction, sensing and hardware: chips, image processing, model training. That points at technical and analytical tasks. Language models, by contrast, are strongest at writing and text-heavy tasks. The research literature has several "AI exposure" measures built in different ways, and they rank occupations quite differently. Before using any exposure score in a regression, ask *exposure to what?*
+
+**Read with care.** Each occupation has only 2–3 tasks on the shortlist, and there are only 10 AI patents. What the exercise shows is that patent text → task → occupation is a *chain of coding decisions*, and each link can be checked the way we did in notebooks 01–03: read the matches (Step 3), compare against a baseline (Step 4) and against another measure (Step 6).
+
+## Try it yourself
+
+Paste the abstract of a patent or product you know, and see which tasks it matches:
+
+%% code
+# Your turn: paste any abstract between the quotes, then run
+my_abstract = """A system that listens to customer phone calls, transcribes them, and suggests replies to the agent in real time."""
+mine = extract(my_abstract, TaskMatch, INSTRUCTIONS)
+for t in (mine.data.task_ids if mine.data else []):
+    print("→", task_text[t])

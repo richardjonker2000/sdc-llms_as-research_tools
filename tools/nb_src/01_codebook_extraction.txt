@@ -1,0 +1,136 @@
+%% md
+# 01 · From text to dataset: codebook-driven extraction
+
+> **Old question:** How do we turn thousands of patent abstracts into variables we can analyse, without hand-coding each one?
+> **New tool:** an LLM that fills in a *codebook* we write ourselves, with every answer checked against a fixed format.
+> **What you'll see:** one abstract coded step by step, then 30 abstracts turned into a table, a check for invented quotes, and a figure.
+
+%% md
+## The idea in one paragraph
+
+Content analysis has always used a **codebook**: a list of variables, each with a definition and allowed values. Here we write the codebook as a small Python class (a *pydantic model*). The helper sends the codebook and the text to the LLM, asks for JSON (a simple machine-readable format), and **validates** the answer. If a field is missing or a value isn't allowed, the helper sends the error back and asks again. What comes out is a clean table row, not free text.
+
+%% code
+import sys, pathlib
+sys.path.insert(0, str(pathlib.Path.cwd().parent))
+from typing import Literal
+import pandas as pd
+import matplotlib.pyplot as plt
+from matplotlib.ticker import PercentFormatter
+from pydantic import BaseModel, Field
+from workshop import *
+
+setup_plots()
+status()
+
+%% code
+patents = pd.read_csv("../data/patents.csv")
+print(len(patents), "patents")
+patents[["id", "year", "assignee", "title"]].head()
+
+%% md
+## Step 1 · Write the codebook
+
+Each field is one variable. The `description` is the coding instruction. `Literal[...]` lists the only allowed values, just like a closed category in a codebook. The `evidence_quote` field asks the model to copy the words that justify its answer, so we can check them later.
+
+%% code
+Domain = Literal["health", "finance", "manufacturing", "transport", "energy",
+                 "retail & consumer", "ICT & telecom", "other"]
+
+class PatentCode(BaseModel):
+    is_ai: bool = Field(description="True if the invention uses or improves artificial intelligence or machine learning")
+    technology: str = Field(description="The core technology in 2 to 5 words")
+    problem_solved: str = Field(description="The problem the invention solves, in one short sentence")
+    application_domain: Domain = Field(description="The main sector where the invention is used")
+    automation_vs_augmentation: Literal["automates human work", "augments human work", "neither"]
+    evidence_quote: str = Field(description="A phrase of 3 to 12 words copied word for word from the abstract that best supports your is_ai answer. Never empty.")
+
+%% code
+INSTRUCTIONS = """You are a research assistant coding patent abstracts for an innovation study.
+Read the patent abstract and fill in every field of the codebook. Base your answers only on the text."""
+
+%% md
+## Step 2 · Code one abstract and look under the hood
+
+On the left is what the model actually wrote (the *raw* answer). On the right is the validated object. Some models "think out loud" in `<think>` tags or wrap JSON in code fences; the helper strips all of that.
+
+%% code
+one = patents.iloc[0]
+print(one.title, "\n")
+result = extract(one.abstract, PatentCode, INSTRUCTIONS)
+print(f"attempts: {result.attempts} · source: {result.source}\n")
+print("RAW ANSWER:\n", result.raw[:800])
+
+%% code
+pd.Series(result.data.model_dump(), name="validated")
+
+%% md
+## Step 3 · Code 30 abstracts
+
+`extract_many` loops over a table, shows a progress bar, reuses saved answers, respects the rate limit, and never stops on a bad row: failed rows get a message in the `error` column instead.
+
+%% code
+sample = patents.sample(30, random_state=1)
+codes = extract_many(sample, "abstract", PatentCode, INSTRUCTIONS)
+ok = codes[codes["error"].isna()]   # rows that were coded successfully
+print("failed rows:", len(codes) - len(ok))
+ok[["id", "title", "is_ai", "technology", "application_domain", "automation_vs_augmentation"]].head(10)
+
+%% md
+## Step 4 · Did the model invent its evidence?
+
+LLMs sometimes "quote" words that are not in the text. Because we asked for a verbatim quote, we can check it mechanically: `quote_check` looks for the quote inside the abstract, ignoring case and spacing.
+
+%% code
+ok = ok.assign(quote_ok=[quote_check(q, t) for q, t in zip(ok["evidence_quote"], ok["abstract"])])
+n_fake = (~ok["quote_ok"]).sum()
+print(f"{n_fake} of {len(ok)} quotes are NOT found in the abstract ({n_fake/max(len(ok), 1):.0%})")
+ok.loc[~ok["quote_ok"], ["id", "evidence_quote"]]
+
+%% md
+**Why this matters:** a quote that is not in the text is a red flag for the whole row. In a real project you would re-code or hand-check these rows. This simple test is one of the cheapest validity checks you can add to any LLM coding pipeline.
+
+## Step 5 · From dataset to figure
+
+Now the coded variables behave like any other data.
+
+%% code
+by_year = ok.groupby("year")["is_ai"].mean()
+fig, ax = plt.subplots()
+ax.bar(by_year.index, by_year.values, color=COLORS[0], width=0.7)
+ax.set_title("Share of sampled patents coded as AI, by filing year")
+ax.set_ylabel("share coded AI"); ax.set_ylim(0, 1)
+ax.yaxis.set_major_formatter(PercentFormatter(1.0))
+plt.show()
+
+%% code
+domains = ok["application_domain"].value_counts().sort_values()
+fig, ax = plt.subplots()
+ax.barh(domains.index, domains.values, color=COLORS[0], height=0.6)
+ax.set_title("Where are the inventions used? (LLM-coded domain)")
+ax.set_xlabel("number of patents"); ax.grid(axis="x"); ax.grid(axis="y", visible=False)
+plt.show()
+
+%% md
+With 30 patents these figures are a demonstration, not a finding. The point is the pipeline: **text → codebook → validated table → figure**, all of it saved and repeatable.
+
+%% code
+pathlib.Path("../outputs").mkdir(exist_ok=True)
+codes.drop(columns=["abstract", "claims"], errors="ignore").to_csv("../outputs/patent_codes.csv", index=False)
+print("saved outputs/patent_codes.csv")
+
+%% md
+## Try it yourself
+
+Add a field to the codebook and re-run Steps 1–3. For example, add this line inside `PatentCode`:
+
+```python
+uses_personal_data: bool = Field(description="True if the invention processes data about individual people")
+```
+
+Or change the list of domains. New fields mean new prompts, so these rows will be live API calls (or fake answers in dry-run mode).
+
+%% code
+# Your turn: edit PatentCode above, run it again, then run this cell
+codes2 = extract_many(sample.head(5), "abstract", PatentCode, INSTRUCTIONS)
+codes2.drop(columns=["abstract", "claims"], errors="ignore").head()

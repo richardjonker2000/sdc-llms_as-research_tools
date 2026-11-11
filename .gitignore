@@ -1,0 +1,17 @@
+config.env
+.venv/
+__pycache__/
+.ipynb_checkpoints/
+.pytest_cache/
+outputs/*
+!outputs/.gitkeep
+outputs_cached/
+*.zip
+openalex
+*_key
+*.env
+!config.example.env
+agent_harness/analysis/
+agent_harness/outputs/
+agent_harness/PLAN.md
+agent_harness/CLAIMS.md
