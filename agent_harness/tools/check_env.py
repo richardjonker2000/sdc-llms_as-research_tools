@@ -7,8 +7,8 @@ from importlib import metadata
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-CJK_FONTS = ["Microsoft YaHei", "SimHei", "PingFang SC", "Heiti SC", "Noto Sans CJK SC", "Noto Sans SC",
-             "Source Han Sans SC", "WenQuanYi Zen Hei", "Arial Unicode MS"]
+CJK_FONTS = ["Microsoft YaHei", "SimHei", "PingFang SC", "Hiragino Sans GB", "Heiti SC", "STHeiti", "Songti SC", "Noto Sans CJK SC", "Noto Sans CJK JP",
+             "Noto Sans CJK TC", "Noto Sans SC", "Source Han Sans SC", "WenQuanYi Zen Hei", "WenQuanYi Micro Hei", "Droid Sans Fallback", "Arial Unicode MS"]
 problems, warnings = [], []
 lines = [f"python {platform.python_version()} ({sys.executable})", f"platform {platform.platform()}"]
 

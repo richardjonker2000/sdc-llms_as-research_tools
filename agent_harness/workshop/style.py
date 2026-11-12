@@ -5,6 +5,16 @@ import matplotlib.pyplot as plt
 COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
 GREY = "#a3a29c"
 
+# Fonts that can draw Chinese: Windows, macOS, Linux. Older matplotlib names Noto's .ttc "Noto Sans CJK JP" (same glyphs).
+CJK_FONTS = ["Microsoft YaHei", "SimHei", "PingFang SC", "Hiragino Sans GB", "Heiti SC", "STHeiti", "Songti SC", "Noto Sans CJK SC", "Noto Sans CJK JP", "Noto Sans CJK TC", "Noto Sans SC", "Source Han Sans SC", "WenQuanYi Zen Hei", "WenQuanYi Micro Hei", "Droid Sans Fallback", "Arial Unicode MS"]
+
+
+def cjk_font() -> list[str]:
+    """The first installed font that can draw Chinese, as a one-item list (empty if none)."""
+    from matplotlib import font_manager
+    have = {f.name for f in font_manager.fontManager.ttflist}
+    return [f for f in CJK_FONTS if f in have][:1]
+
 
 def setup_plots() -> None:
     plt.rcParams.update({
@@ -15,8 +25,8 @@ def setup_plots() -> None:
         "axes.axisbelow": True, "axes.titlesize": 13, "axes.titleweight": "bold", "axes.titlelocation": "left",
         "axes.labelcolor": "#52514e", "xtick.color": "#52514e", "ytick.color": "#52514e",
         "font.size": 10, "lines.linewidth": 2, "lines.markersize": 7,
-        # CJK fallbacks so Chinese labels render on Windows (Microsoft YaHei), macOS (PingFang) and Linux (Noto)
-        "font.sans-serif": ["DejaVu Sans", "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", "Arial Unicode MS"],
+        # DejaVu Sans for Latin text; Chinese characters fall back to the first CJK font found (see cjk_font)
+        "font.family": ["DejaVu Sans", *cjk_font()],
     })
 
 
