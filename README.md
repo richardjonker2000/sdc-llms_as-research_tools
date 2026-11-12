@@ -6,6 +6,8 @@ Hands-on notebooks showing what LLMs can do with research text: codebook-driven 
 
 ## 1 · Install (10 minutes, before the session)
 
+**Organisers / demo laptop (macOS or Linux):** `./setup.sh` does everything below plus OpenCode and a ready agent demo folder (`./setup.sh --china` uses a PyPI mirror; `--help` for options). Participants follow the steps by hand.
+
 You need **Python 3.10, 3.11 or 3.12**. Check with `python --version` (Windows) or `python3 --version` (macOS). If you don't have it, get it from python.org; on Windows, tick *"Add python.exe to PATH"*.
 
 Open a terminal (Windows: *Command Prompt*; macOS: *Terminal*) in this folder:

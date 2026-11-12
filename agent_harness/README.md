@@ -26,6 +26,8 @@ There is no sandbox. The control comes from OpenCode's own permissions and instr
 
 ## Run it
 
+Easiest: from the repo root run `./setup.sh`. It builds `~/sdc_agent_demo` with all of the below; then `cd ~/sdc_agent_demo && ./start_agent.sh`. By hand:
+
 ```bash
 cd agent_harness
 python -m venv .venv && .venv/bin/python -m pip install -r requirements.txt
