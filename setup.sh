@@ -5,6 +5,9 @@
 #   ./setup.sh --china         same, with the Tsinghua PyPI mirror
 #   ./setup.sh --demo-dir DIR  put the agent demo folder somewhere else
 #   ./setup.sh --reset-demo    move an existing demo folder aside (DIR.bak-<time>) and build a fresh one
+#   ./setup.sh --cache-from SRC  copy saved answers + embeddings (outputs_cached/) from a folder, USB stick
+#                              or another machine (rsync syntax, e.g. me@desktop:~/projects/sdc_work/outputs_cached)
+#   ./setup.sh --no-ollama     skip Ollama and the decision model
 #
 # What it does:
 #   1. finds Python 3.10-3.12
@@ -12,7 +15,9 @@
 #   3. config.env from config.example.env; asks for the API key (input hidden, stored only in config.env)
 #   4. OpenCode 1.19.5 into ~/.local/bin (skipped if that version is already on PATH)
 #   5. a copy of agent_harness/ as its own git project with its own .venv, DRY_RUN=1, and start_agent.sh
-# It never uses sudo. Ollama (notebook 03 only) is not installed: see README step 2.
+#   6. Ollama >= 0.40 (official installer: asks for sudo on Linux; Homebrew on macOS), starts it,
+#      pulls the decision model (DECISION_MODEL in config.env, default tev1:0.8b, 833 MB) and tests it
+#   7. outputs_cached/ (with --cache-from), then runs notebooks/00_setup headless: must say "Connection OK"
 set -euo pipefail
 
 OPENCODE_VERSION=1.19.5
@@ -20,12 +25,18 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 DEMO_DIR="$HOME/sdc_agent_demo"
 PIP_INDEX=()
 RESET=0
+CACHE_FROM=""
+OLLAMA=1
+OLLAMA_MIN=0.40.0
+export PIP_DISABLE_PIP_VERSION_CHECK=1
 while [ $# -gt 0 ]; do
   case "$1" in
     --china) PIP_INDEX=(--index-url https://pypi.tuna.tsinghua.edu.cn/simple) ;;
     --demo-dir) DEMO_DIR="$2"; shift ;;
     --reset-demo) RESET=1 ;;
-    -h|--help) sed -n '2,15p' "$0"; exit 0 ;;
+    --cache-from) CACHE_FROM="$2"; shift ;;
+    --no-ollama) OLLAMA=0 ;;
+    -h|--help) sed -n '2,23p' "$0"; exit 0 ;;
     *) echo "unknown option: $1"; exit 1 ;;
   esac
   shift
@@ -50,7 +61,7 @@ pip_in() {  # pip_in <venv> <pip args...>
 }
 
 # ---------------------------------------------------------------- 1. Python
-say "1/5 Python"
+say "1/7 Python"
 PY=""
 for c in python3.12 python3.11 python3.10 python3 python; do
   if command -v "$c" >/dev/null 2>&1 && "$c" -c 'import sys; sys.exit(not ((3,10) <= sys.version_info[:2] <= (3,12)))' 2>/dev/null; then
@@ -62,13 +73,13 @@ echo "using $PY ($("$PY" --version))"
 command -v git >/dev/null || { echo "Need git (macOS: xcode-select --install)."; exit 1; }
 
 # ---------------------------------------------------------------- 2. notebook environment
-say "2/5 Notebook environment (.venv, a few minutes the first time)"
+say "2/7 Notebook environment (.venv, a few minutes the first time)"
 make_venv "$HERE/.venv"
 pip_in "$HERE/.venv" -r "$HERE/requirements-dev.txt"
 (cd "$HERE" && .venv/bin/python -m pytest -q tests | tail -1)
 
 # ---------------------------------------------------------------- 3. config.env + key
-say "3/5 config.env"
+say "3/7 config.env"
 CFG="$HERE/config.env"
 [ -f "$CFG" ] || cp "$HERE/config.example.env" "$CFG"
 key_in_cfg() { grep -E '^API_KEY=' "$CFG" | cut -d= -f2- | awk '{print $1}'; }
@@ -95,7 +106,7 @@ else
 fi
 
 # ---------------------------------------------------------------- 4. OpenCode
-say "4/5 OpenCode $OPENCODE_VERSION"
+say "4/7 OpenCode $OPENCODE_VERSION"
 OC="$(command -v opencode || true)"
 if [ -n "$OC" ] && [ "$("$OC" --version 2>/dev/null)" = "$OPENCODE_VERSION" ]; then
   echo "already installed: $OC"
@@ -121,7 +132,7 @@ else
 fi
 
 # ---------------------------------------------------------------- 5. agent demo folder
-say "5/5 Agent demo folder: $DEMO_DIR"
+say "5/7 Agent demo folder: $DEMO_DIR"
 if [ -e "$DEMO_DIR" ]; then
   if [ "$RESET" = 1 ]; then
     BAK="$DEMO_DIR.bak-$(date +%Y%m%d-%H%M%S)"; mv "$DEMO_DIR" "$BAK"; echo "old demo moved to $BAK"
@@ -154,12 +165,87 @@ EOF
     .venv/bin/python tools/check_env.py | head -3 )
 fi
 
+# ---------------------------------------------------------------- 6. Ollama + decision model
+cfg_val() { grep -E "^$1=" "$CFG" | cut -d= -f2- | awk '{print $1}'; }
+ver_ge() { [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -1)" = "$2" ]; }   # ver_ge A B: A >= B
+OLLAMA_STATUS="skipped (--no-ollama)"
+if [ "$OLLAMA" = 1 ]; then
+  say "6/7 Ollama + decision model (notebook 03)"
+  OURL="$(cfg_val OLLAMA_URL)"; OURL="${OURL:-http://localhost:11434}"
+  DMODEL="$(cfg_val DECISION_MODEL)"; DMODEL="${DMODEL:-tev1:0.8b}"
+  export OLLAMA_HOST="${OURL#http://}"
+  oll_ver() { ollama --version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | tail -1; }
+  if ! command -v ollama >/dev/null 2>&1 || ! ver_ge "$(oll_ver)" "$OLLAMA_MIN"; then
+    command -v ollama >/dev/null 2>&1 && echo "Ollama $(oll_ver) is too old (need $OLLAMA_MIN+; tev1 models fail on 0.35)" || echo "Ollama not found"
+    case "$(uname -s)" in
+      Linux)
+        echo "Installing with the official installer (https://ollama.com/install.sh); it asks for your sudo password."
+        curl -fsSL https://ollama.com/install.sh | sh ;;
+      Darwin)
+        if command -v brew >/dev/null 2>&1; then brew install ollama || brew upgrade ollama
+        else echo "Install the Ollama app from https://ollama.com/download (or install Homebrew), then re-run ./setup.sh"; exit 1; fi ;;
+    esac
+    hash -r
+  fi
+  echo "Ollama $(oll_ver)"
+  if ! curl -fs "$OURL/api/version" >/dev/null 2>&1; then
+    echo "starting the Ollama server (log: ~/.ollama_serve.log)"
+    if [ "$(uname -s)" = Darwin ] && command -v brew >/dev/null 2>&1 && brew list ollama >/dev/null 2>&1; then brew services start ollama >/dev/null
+    else nohup ollama serve > "$HOME/.ollama_serve.log" 2>&1 & fi
+    for _ in $(seq 1 20); do curl -fs "$OURL/api/version" >/dev/null 2>&1 && break; sleep 1; done
+  fi
+  curl -fs "$OURL/api/version" >/dev/null 2>&1 || { echo "Ollama server not reachable at $OURL (see ~/.ollama_serve.log)"; exit 1; }
+  SERVER_VER="$(curl -fs "$OURL/api/version" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')"
+  ver_ge "$SERVER_VER" "$OLLAMA_MIN" || { echo "The running Ollama server is $SERVER_VER (too old). Quit/stop it, then re-run ./setup.sh"; exit 1; }
+  if ollama list 2>/dev/null | awk '{print $1}' | grep -qx "$DMODEL"; then echo "$DMODEL already pulled"
+  else echo "pulling $DMODEL (833 MB for tev1:0.8b, once)"; ollama pull "$DMODEL"; fi
+  (cd "$HERE" && .venv/bin/python - <<'EOF'
+import workshop.llm as L
+L.CFG["dry_run"] = False          # test the real local model even when config.env says DRY_RUN=1
+r = L.decide("Write a short summary of a research paper", {"can_do": {"type": "choice",
+    "instructions": "Could a language model do this work task?",
+    "criteria": {"yes": "reading, writing or analysing text", "no": "physical or in-person work"}}}, use_cache=False)
+print("decision model answer:", r)
+EOF
+  ) && OLLAMA_STATUS="ok: Ollama $SERVER_VER, $DMODEL" || { OLLAMA_STATUS="FAILED: see the error above"; warn "decision model test failed"; }
+fi
+
+# ---------------------------------------------------------------- 7. saved answers + notebook check
+say "7/7 Saved answers and notebook check"
+if [ -n "$CACHE_FROM" ]; then
+  mkdir -p "$HERE/outputs_cached"
+  if command -v rsync >/dev/null 2>&1; then rsync -a "${CACHE_FROM%/}/" "$HERE/outputs_cached/"
+  else cp -R "${CACHE_FROM%/}/." "$HERE/outputs_cached/"; fi
+fi
+NCACHE=$(find "$HERE/outputs_cached" -name '*.json' 2>/dev/null | wc -l | tr -d ' ')
+if [ "$NCACHE" -gt 0 ]; then echo "outputs_cached/: $NCACHE saved answers"
+else warn "outputs_cached/ is empty: notebooks will call the API for every answer (about 200 calls). Get it with --cache-from <path>"; fi
+NB_OUT="$(mktemp -d)"
+if (cd "$HERE/notebooks" && ../.venv/bin/jupyter nbconvert --to notebook --execute 00_setup.ipynb --output-dir "$NB_OUT" \
+      --ExecutePreprocessor.timeout=300 >"$NB_OUT/log.txt" 2>&1); then
+  # look only at what the cells printed (the source code contains the words too)
+  NB_STATUS="$("$HERE/.venv/bin/python" - "$NB_OUT/00_setup.ipynb" <<'EOF'
+import json, sys
+out = "".join("".join(o.get("text", "")) for c in json.load(open(sys.argv[1], encoding="utf-8"))["cells"]
+              if c["cell_type"] == "code" for o in c.get("outputs", []))
+if "Connection OK" not in out:
+    print("FAILED: 00_setup did not reach Connection OK; open it in Jupyter to see the red items")
+else:
+    print("ok: 00_setup says Connection OK" + (" (DRY RUN: chat answers are fake; set API_KEY and DRY_RUN=0 for live)" if "dry run" in out.split("Connection OK")[1][:60] else " (live)"))
+EOF
+)"
+else
+  NB_STATUS="FAILED: notebook 00 crashed (log: $NB_OUT/log.txt)"
+fi
+echo "$NB_STATUS"
+
 say "Done"
+echo "Ollama:      $OLLAMA_STATUS"
+echo "Notebook 00: $NB_STATUS"
 cat <<EOF
 Notebooks:   cd "$HERE" && source .venv/bin/activate && jupyter lab     (open notebooks/00_setup.ipynb first)
 Agent demo:  cd "$DEMO_DIR" && ./start_agent.sh
              then type:  /plan Do AI patents automate rather than augment work, and do Chinese and US firms differ?
              go live for LLM coding: set DRY_RUN=0 in $DEMO_DIR/config.env
 Fresh demo:  ./setup.sh --reset-demo
-Optional:    Ollama + 'ollama pull tev1:0.8b' for notebook 03 (README step 2)
 EOF
