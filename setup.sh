@@ -15,7 +15,7 @@
 #   3. config.env from config.example.env; asks for the API key (input hidden, stored only in config.env)
 #   4. OpenCode 1.19.5 into ~/.local/bin (skipped if that version is already on PATH)
 #   5. a copy of agent_harness/ as its own git project with its own .venv, DRY_RUN=1, and start_agent.sh
-#   6. Ollama >= 0.40 (official installer: asks for sudo on Linux; Homebrew on macOS), starts it,
+#   6. Ollama >= 0.40 (Linux: into ~/.local/ollama, no sudo; macOS: Homebrew), starts it,
 #      pulls the decision model (DECISION_MODEL in config.env, default tev1:0.8b, 833 MB) and tests it
 #   7. outputs_cached/ (with --cache-from), then runs notebooks/00_setup headless: must say "Connection OK"
 set -euo pipefail
@@ -28,6 +28,7 @@ RESET=0
 CACHE_FROM=""
 OLLAMA=1
 OLLAMA_MIN=0.40.0
+OLLAMA_VERSION=0.40.15     # tested; Linux download ~1.5 GB (includes GPU libraries)
 export PIP_DISABLE_PIP_VERSION_CHECK=1
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -179,8 +180,19 @@ if [ "$OLLAMA" = 1 ]; then
     command -v ollama >/dev/null 2>&1 && echo "Ollama $(oll_ver) is too old (need $OLLAMA_MIN+; tev1 models fail on 0.35)" || echo "Ollama not found"
     case "$(uname -s)" in
       Linux)
-        echo "Installing with the official installer (https://ollama.com/install.sh); it asks for your sudo password."
-        curl -fsSL https://ollama.com/install.sh | sh ;;
+        # No sudo, no apt: unpack the official release into ~/.local/ollama. The release is .tar.zst;
+        # without the zstd tool we decompress with Python's zstandard package (works when apt is broken).
+        case "$(uname -m)" in x86_64) OARCH=amd64 ;; aarch64) OARCH=arm64 ;; *) echo "unsupported CPU $(uname -m)"; exit 1 ;; esac
+        OURL_DL="https://github.com/ollama/ollama/releases/download/v$OLLAMA_VERSION/ollama-linux-$OARCH.tar.zst"
+        echo "Installing Ollama $OLLAMA_VERSION into ~/.local/ollama (no sudo; ~1.5 GB download)"
+        rm -rf "$HOME/.local/ollama.new"; mkdir -p "$HOME/.local/ollama.new" "$HOME/.local/bin"
+        if command -v zstd >/dev/null 2>&1; then UNZST=(zstd -d -c)
+        else pip_in "$HERE/.venv" zstandard
+             UNZST=("$HERE/.venv/bin/python" -c "import sys, zstandard; zstandard.ZstdDecompressor().copy_stream(sys.stdin.buffer, sys.stdout.buffer)"); fi
+        curl -fL --progress-bar "$OURL_DL" | "${UNZST[@]}" | tar -x -C "$HOME/.local/ollama.new"
+        rm -rf "$HOME/.local/ollama"; mv "$HOME/.local/ollama.new" "$HOME/.local/ollama"
+        ln -sf "$HOME/.local/ollama/bin/ollama" "$HOME/.local/bin/ollama"
+        export PATH="$HOME/.local/bin:$PATH" ;;
       Darwin)
         if command -v brew >/dev/null 2>&1; then brew install ollama || brew upgrade ollama
         else echo "Install the Ollama app from https://ollama.com/download (or install Homebrew), then re-run ./setup.sh"; exit 1; fi ;;
