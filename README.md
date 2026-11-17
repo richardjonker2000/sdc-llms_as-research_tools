@@ -52,6 +52,7 @@ Then open `notebooks/00_setup.ipynb` and run it. You should see **Connection OK*
 | `API key rejected (401)` | The key doesn't belong to the `PROVIDER` you set. Check both lines. |
 | `Can't reach ...` / `Access denied (403)` | No internet, or a blocked provider: Gemini does not work from mainland China, so use `minimax_cn`. Offline? Set `DRY_RUN=1`. |
 | `Model ... not found` / `has no default model` | Set `MODEL=` to a model your provider offers (check its website). |
+| `Error 529` / `InternalServerError` / `负载较高` | The provider's servers are overloaded (common at busy times). Not your setup: wait half a minute and re-run the cell. Rows already coded are saved. |
 | `Rate limit (429)` / `Daily free quota ... used up` | Free tiers cap calls per minute **and per day** (Gemini Flash: only 20 a day in Nov 2026; each model has its own quota). Lower `RPM`, switch `MODEL`, or wait. Saved answers are never lost. |
 | `Ollama is not running` | Start the Ollama app (look for the llama icon), then re-run the cell. |
 | `Decision model ... not installed` | Run `ollama pull tev1:0.8b`. If the pull says "requires a newer version", update Ollama. |
