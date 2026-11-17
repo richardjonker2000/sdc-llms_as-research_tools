@@ -10,6 +10,9 @@
 
 Content analysis has always used a **codebook**: a list of variables, each with a definition and allowed values. Here we write the codebook as a small Python class (a *pydantic model*). The helper sends the codebook and the text to the LLM, asks for JSON (a simple machine-readable format), and **validates** the answer. If a field is missing or a value isn't allowed, the helper sends the error back and asks again. What comes out is a clean table row, not free text.
 
+%% md
+![Process flow: codebook and text go to the LLM, which returns JSON; the answer is validated against the codebook; errors are sent back for another try, valid answers become a clean table row](images/codebook-flow.drawio.png)
+
 %% code
 import sys, pathlib
 sys.path.insert(0, str(pathlib.Path.cwd().parent))
