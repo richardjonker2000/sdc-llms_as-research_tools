@@ -1,0 +1,27 @@
+t3-next: /next 
+
+
+AGENT: Executing S1 — building the joined analysis dataset.
+  [write] analysis/s1_build_dataset.py
+  [bash] .venv/bin/python analysis/s1_build_dataset.py 2>&1
+
+AGENT: All checks passed. Now the claims log and the plan tick.
+  [write] CLAIMS.md
+  [edit] PLAN.md
+  [bash] git add analysis/s1_build_dataset.py outputs/analysis_dataset.csv CLAIMS.md PLAN.md && git commit -q -m "S1: build analysis dataset (151 pat
+
+AGENT: **Step S1 done: build the analysis dataset**
+
+What I did: Joined the 151 patents with the 30 notebook-01 codes into one table, one row per patent, and added two flags: "coded" (has an LLM code) and "is_ai" (blank for patents not coded yet). The 121 patents still to be coded are in the file with empty code fields, ready for step S2.
+
+Result: `outputs/analysis_dataset.csv` — 151 rows, 30 coded, 121 to code later. Among the coded 30: 16 "automates human work", 2 "augments human work", 12 "neither"; 11 flagged AI and 19 not. Coded patents per year: 2015: 3, 2016: 3, 2017: 4, 2018: 3, 2019: 5, 2020: 4, 2021: 6, 2022: 2.
+
+How I checked it: The script asserts and then re-reads the saved file — 151 rows, no duplicate ids, 30 rows with a code, every coded id present exactly once, the three-way split reproduces 16/2/12 exactly, is_ai reproduces 11 True / 19 False, and no coded row carries an error. It also verifies that the patent details repeated inside the codes file (title, year, assignee, country, CPC subclass) agree with the patent file on every row, so the two files really describe the same patents.
+
+Please check: Open `outputs/analysis_dataset.csv` and read the columns `id`, `year`, `coded`, `is_ai`, `automation_vs_augmentation` for the first 5–10 rows. The first three rows should show `coded = False` and empty code fields (they are among the 121 still to be coded). If any row looks off, tell me before S2.
+
+Decisions needed: **D4** still open and it blocks S2 — please paste notebook 01's prompt/codebook if you have it, otherwise say "write a new one" and I will write one from the six field names plus your "neither = no work content" rule. Also for S2 you need to set `DRY_RUN=0` in `config.env`; with it left at 1 the helper returns fake answers, which can only prove the script runs, never be reported. (D7 — how the 151 were selected — is still open but does not block S1 or S2.)
+
+Next: S2 code the 121 remaining patents. Reply /next to continue, or tell me what to change.
+
+-- 6 model steps, tokens: {'in': 43244, 'out': 2820, 'reason': 908, 'cache': 209312}

@@ -13,7 +13,7 @@ There is no sandbox. The control comes from OpenCode's own permissions and instr
 | `opencode.json` | Permissions: no web, no edits outside the agent's own folders, a bash allowlist; `git config`, `rm`, `curl`, `sudo` and reading `config.env` are denied |
 | `.opencode/agents/planner.md` | Writes only `PLAN.md` (plus a data-inspection script); ends each turn with numbered decisions D1, D2, ... |
 | `.opencode/agents/builder.md` | Does exactly one plan step, reports, and stops |
-| `.opencode/commands/` | `/plan <idea>`, `/revise <answers>`, `/next`, `/explain`, `/status` |
+| `.opencode/commands/` | `/plan <idea>`, `/revise <answers>`, `/next`, `/extra <job>` (LaTeX table, diagram), `/explain`, `/status` |
 | `.opencode/skills/setup-env/` | Environment troubleshooting for student laptops in China and Denmark |
 | `tools/check_env.py` | Read-only environment check; writes `outputs/ENVIRONMENT.txt` |
 | `workshop/` | The same LLM helper as the notebooks; `DRY_RUN=1` gives fake answers |
@@ -37,6 +37,8 @@ git add -A && git commit -m "Starter"
 export MINIMAX_API_KEY=...               # the workshop key, never a personal one
 opencode                                 # interactive; or: opencode run --command plan "..."
 ```
+
+**Workshop demo:** the 15-minute run sheet, the prepared run (`demo_prepared.bundle`, one git tag per turn) and its transcripts are in `DEMO.md`.
 
 `tools_facilitator_show_turn.py` turns an `opencode run --format json` log into a readable transcript.
 
