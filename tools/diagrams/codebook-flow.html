@@ -1,0 +1,72 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+  html, body { margin: 0; background: #fcfcfb; }
+  svg { display: block; font-family: "Noto Sans", "DejaVu Sans", sans-serif; }
+  .t { font-size: 18px; font-weight: 700; fill: #1f1e1c; }
+  .s { font-size: 13.5px; fill: #52514e; }
+  .lab { font-size: 13px; fill: #52514e; }
+</style></head>
+<body>
+<svg width="1140" height="370" viewBox="0 0 1140 370" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="aG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#52514e"/></marker>
+    <marker id="aR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#c8383a"/></marker>
+    <marker id="aV" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#11875c"/></marker>
+  </defs>
+
+  <!-- Text -->
+  <rect x="30" y="40" width="240" height="80" rx="12" fill="#eaf2fc" stroke="#2a78d6" stroke-width="2"/>
+  <g transform="translate(50,69)" fill="none" stroke="#2a78d6" stroke-width="2" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M0,0 h12 l6,6 v16 h-18 z"/><path d="M12,0 v6 h6"/><path d="M4,11 h10 M4,16 h10"/>
+  </g>
+  <text class="t" x="84" y="76">Text</text>
+  <text class="s" x="84" y="98">e.g. a patent abstract</text>
+
+  <!-- Codebook -->
+  <rect x="30" y="200" width="240" height="80" rx="12" fill="#eaf2fc" stroke="#2a78d6" stroke-width="2"/>
+  <g transform="translate(50,229)" fill="none" stroke="#2a78d6" stroke-width="2" stroke-linecap="round">
+    <path d="M7,2 h12 M7,11 h12 M7,20 h12"/><circle cx="1.5" cy="2" r="1.2" fill="#2a78d6"/><circle cx="1.5" cy="11" r="1.2" fill="#2a78d6"/><circle cx="1.5" cy="20" r="1.2" fill="#2a78d6"/>
+  </g>
+  <text class="t" x="84" y="236">Codebook</text>
+  <text class="s" x="84" y="258">fields and allowed values</text>
+
+  <!-- inputs -> LLM -->
+  <path d="M270,80 C305,80 298,142 326,146" fill="none" stroke="#52514e" stroke-width="2" marker-end="url(#aG)"/>
+  <path d="M270,240 C305,240 298,178 326,174" fill="none" stroke="#52514e" stroke-width="2" marker-end="url(#aG)"/>
+
+  <!-- LLM -->
+  <rect x="330" y="115" width="190" height="90" rx="12" fill="#2a78d6" stroke="#1d5fae" stroke-width="2"/>
+  <path transform="translate(352,138)" d="M11,0 C12,7 15,10 22,11 C15,12 12,15 11,22 C10,15 7,12 0,11 C7,10 10,7 11,0Z" fill="#ffffff"/>
+  <text class="t" x="386" y="156" style="fill:#fff">LLM</text>
+  <text class="s" x="386" y="178" style="fill:#e3eefc">asked for JSON</text>
+
+  <!-- LLM -> Validate -->
+  <path d="M520,160 L574,160" fill="none" stroke="#52514e" stroke-width="2" marker-end="url(#aG)"/>
+  <text class="lab" x="547" y="150" text-anchor="middle">answer</text>
+
+  <!-- Validate -->
+  <polygon points="578,160 690,78 802,160 690,242" fill="#fdf3dc" stroke="#eda100" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M680,124 l7,7 l13,-14" fill="none" stroke="#b07800" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text class="t" x="690" y="160" text-anchor="middle">Validate</text>
+  <text class="s" x="690" y="181" text-anchor="middle">against the codebook</text>
+
+  <!-- Validate -> row -->
+  <path d="M802,160 L871,160" fill="none" stroke="#11875c" stroke-width="2" marker-end="url(#aV)"/>
+  <text class="lab" x="836" y="150" text-anchor="middle" style="fill:#11875c;font-weight:700">valid</text>
+
+  <!-- Clean table row -->
+  <rect x="875" y="120" width="235" height="80" rx="12" fill="#e3f5ec" stroke="#1baf7a" stroke-width="2"/>
+  <g transform="translate(895,150)" fill="none" stroke="#11875c" stroke-width="2" stroke-linejoin="round">
+    <rect x="0" y="0" width="22" height="18" rx="2"/><path d="M0,6 h22 M0,12 h22 M8,0 v18"/>
+  </g>
+  <text class="t" x="931" y="156">Clean table row</text>
+  <text class="s" x="931" y="178">one row per text</text>
+
+  <!-- error loop -->
+  <path d="M690,242 L690,298 Q690,312 676,312 L439,312 Q425,312 425,298 L425,209" fill="none" stroke="#c8383a" stroke-width="2" marker-end="url(#aR)"/>
+  <rect x="438" y="294" width="238" height="36" rx="18" fill="#fdeaea" stroke="#e34948" stroke-width="2"/>
+  <text x="557" y="317" text-anchor="middle" style="font-size:14.5px;font-weight:700;fill:#a12a2a">not valid: send error back</text>
+  <text class="lab" x="557" y="352" text-anchor="middle">missing field or value not allowed · asks again, up to 2 retries</text>
+</svg>
+</body></html>
