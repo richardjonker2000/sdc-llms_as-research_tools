@@ -13,7 +13,9 @@
     "read": {
       "*": "allow",
       "config.env": "deny",
-      "*.env": "deny"
+      "*.env": "deny",
+      "workshop/*": "deny",
+      "tools/*": "deny"
     },
     "edit": {
       "*": "deny"
@@ -41,6 +43,7 @@
       "date *": "allow",
       "which *": "allow",
       "true *": "allow",
+      "mkdir *": "allow",
       "find * -delete*": "deny",
       "find * -exec*": "deny",
       "cat *.env*": "deny",
@@ -59,7 +62,13 @@
       "rm *": "deny",
       "sudo *": "deny",
       "curl *": "deny",
-      "wget *": "deny"
+      "wget *": "deny",
+      "cat workshop/*": "deny",
+      "cat tools/*": "deny",
+      "head workshop/*": "deny",
+      "head tools/*": "deny",
+      "grep * workshop/*": "deny",
+      "grep * tools/*": "deny"
     }
   }
 }

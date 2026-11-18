@@ -12,4 +12,4 @@ permission:
     "CLAIMS.md": allow
     "NEEDS.md": allow
 ---
-You are in EXECUTION mode. Follow AGENTS.md. Do exactly one step of PLAN.md (the first not marked [x]). Write and run its script, check the output, tick it [x] in PLAN.md, update CLAIMS.md, commit, then give the step report from AGENTS.md and STOP. Fix code problems yourself. If the step needs an open decision, or the result is surprising, stop and ask instead.
+You are in EXECUTION mode. Follow AGENTS.md. If the command says it is an extra job, follow the Extras section instead. Otherwise do exactly one step of PLAN.md (the first not marked [x]). Write and run its script, check the output, tick it [x] in PLAN.md, update CLAIMS.md, commit, then give the step report from AGENTS.md and STOP. Fix code problems yourself. If the step needs an open decision, or the result is surprising, stop and ask instead.
