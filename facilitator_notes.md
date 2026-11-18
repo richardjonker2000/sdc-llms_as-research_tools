@@ -1,4 +1,4 @@
-# Facilitator notes: Session 1 (2 hours)
+# Facilitator notes: Session 1 (60 minutes, 09:45–10:45)
 
 ## Before the day
 
@@ -10,18 +10,17 @@
 
 ## Timing plan
 
-| Time | Block | Notebook | Notes |
+Demo first: participants watch, and follow along on their laptops only if they like. Everything below replays from `outputs_cached/`, so it runs with `DRY_RUN=1` if the network fails.
+
+| Time | Block | Material | Notes |
 | --- | --- | --- | --- |
-| 0:00 | Welcome, why LLMs for research text | – | 5 min, slides only |
-| 0:05 | Setup check | 00 | Everyone runs it. Helpers go to red ❌ messages. Anyone stuck after 5 min: `DRY_RUN=1` or the chatbot track. |
-| 0:15 | Codebook extraction | 01 | **Core block**, live demo then participants run it |
-| 0:40 | Consistency | 02 | |
-| 0:55 | Break | – | 5 min |
-| 1:00 | Decision models | 03 | |
-| 1:15 | Long text | 04 | |
-| 1:30 | Rewriting | 05 | Pick (a) or (c) if time is short |
-| 1:40 | Your data | 07 | Participants try their own CSV, or the example |
-| 1:55 | Wrap-up, bridge to Session 2 (validation) | – | 06 is the optional bonus for fast participants |
+| 09:45 | Welcome, the three blocks | intro slide | 3 min |
+| 09:48 | Coding with a codebook | 01 | 20 min. Codebook, the prompt template (shown in full), raw vs validated, fake quotes, the figure. |
+| 10:08 | Mapping a field | 08 | 7 min, cached only: one question, the streams, the map, one `ask_literature` answer with citations. Skip `suggest_questions` if short of time. |
+| 10:15 | A coding agent | agent slide, then `agent_harness/DEMO.md` | 30 min, the second half of the hour. Uses notebook 01's codes as its data. |
+| 10:45 | End | – | Coffee at 11:00; Roman's session at 11:15. |
+
+Not in the session, for self-study: 00 (setup check), 02 (consistency), 03 (decision models, needs Ollama), 04, 05, 06, 07 and 09.
 
 ## The "wow" moments and what to say
 
@@ -29,8 +28,8 @@
 2. **01, fake quotes.** *"We asked for a verbatim quote, so we can check it mechanically. Every quote that isn't in the text is a row you shouldn't trust. This one line of code is a validity check most published LLM studies skip."*
 3. **01, the figure.** *"Text to dataset to figure in a few minutes. With 30 patents it's a demo, but the pipeline is identical at 30,000."*
 4. **02, disagreements.** *"Don't hide these rows; read them. They are usually ambiguous for humans too, and your rubric is the thing to fix."*
-5. **03, speed and probabilities.** *"An 800 MB model on this laptop, no internet, no text: just probabilities."* About 3 decisions per second on the build laptop (CPU). Then the three bars: right on 10 of 14 when least sure, 10 of 13 in the middle, 13 of 13 when most sure (draft reference labels). *"Automate the confident part, hand-code the rest."* Mention the honest lesson in the notebook: on the three-level question the tiny model said "medium" to almost everything.
-6. **03, order effect.** On the build laptop `tev1` gave *identical* probabilities with the options swapped. *"Chat models are known to change their answer when you reorder options; this one doesn't. Worth testing on any model you use."* If some answers do flip on the day, point out that they are the low-confidence ones.
+5. *(Self-study, not in the session.)* **03, speed and probabilities.** *"An 800 MB model on this laptop, no internet, no text: just probabilities."* About 3 decisions per second on the build laptop (CPU). Then the three bars: right on 10 of 14 when least sure, 10 of 13 in the middle, 13 of 13 when most sure (draft reference labels). *"Automate the confident part, hand-code the rest."* Mention the honest lesson in the notebook: on the three-level question the tiny model said "medium" to almost everything.
+6. *(Self-study.)* **03, order effect.** On the build laptop `tev1` gave *identical* probabilities with the options swapped. *"Chat models are known to change their answer when you reorder options; this one doesn't. Worth testing on any model you use."* If some answers do flip on the day, point out that they are the low-confidence ones.
 7. **04, registry check.** *"We never showed the model the registry's age field, so it's a free answer key."*
 8. **05, firm names.** *"133 raw names became about 90 firms. We can check the result against PatentsView's hand-curated grouping."*
 

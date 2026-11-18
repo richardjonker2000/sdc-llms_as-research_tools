@@ -21,7 +21,9 @@ Open a terminal (Windows: *Command Prompt*; macOS: *Terminal*) in this folder:
 
 **In mainland China** pip is faster with a mirror: `pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple`
 
-## 2 · Local decision model (Ollama)
+## 2 · Local decision model (Ollama, optional)
+
+Only needed for notebook 03, which is self-study and not part of the session. Skip this step if you are short of time or disk space.
 
 1. Install the **latest Ollama** from [ollama.com/download](https://ollama.com/download) (tested with 0.40.15; version 0.35 is too old for `tev1`).
 2. Start the Ollama app, then in a terminal run: `ollama pull tev1:0.8b` (833 MB, once).

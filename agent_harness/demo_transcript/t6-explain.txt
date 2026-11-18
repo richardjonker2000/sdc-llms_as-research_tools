@@ -1,0 +1,31 @@
+t6-explain: /explain Explain step S1 (commit a882ba8, the analysis dataset), not the LaTeX table.
+
+
+AGENT: Let me re-ground myself in exactly what S1 did before explaining it.
+  [bash] .venv/bin/python analysis/s1_build_dataset.py 2>&1 && echo "=== git status ===" && git status --short && echo "=== files in the step ===" &&
+
+AGENT: **Step S1 (commit a882ba8) — what it did, what could have broken, and how we know**
+
+**What it did to the data: nothing destructive.** It left both original files in `data/` exactly as they were, read-only. What it produced is a new working table, `outputs/analysis_dataset.csv`, with one line per patent: all 151 patents, and next to each one the LLM code if that patent has one. It adds two plain-language columns: "coded" (yes/no) and "is_ai" (true/false, left empty for the patents nobody has coded yet). The 30 coded patents keep their full code — the work-type label, the application domain, the technology, the evidence quote, the source and attempt count — and the other 121 have empty code fields, waiting for step S2. So the step added labels and a filing cabinet; it invented no numbers and changed no content.
+
+**What could have gone wrong**
+
+1. *The 30 codes might belong to a different set of patents* — e.g. the codes file could have come from an earlier or later version of the patent data, or the two files might be offset by a row so each code sits next to the wrong patent. This is the classic silent failure: the table looks perfectly tidy and every number is wrong.
+2. *Rows lost or duplicated in the matching* — a patent dropped, or one patent appearing twice with two different codes.
+3. *A blank read as a real answer* — an uncoded patent quietly getting a work-type label (or the reverse: a coded one looking uncoded).
+4. *The work-type labels garbled on the way through* — for example every "neither" turning into "automates", which would inflate exactly the headline number you care about.
+5. *Broken LLM calls carried along as if they were real answers* — the codes file has an error column, and a failed call could have left a half-written record that looks complete.
+
+**How we know it didn't happen**
+
+- For worry 1, I did not just match on the patent number. The codes file repeats each patent's title, year, assignee, country and technology class, so I compared those five details against the patent file on every one of the 30 rows and they agree everywhere. That is the strong check: if the two files were shifted, or came from different versions, those details would not line up.
+- For worry 2, the finished file has 151 lines, no patent number appears twice, and exactly 30 lines carry a code — the same 30 numbers that appear in the codes file, none missing, none extra.
+- For worry 3, the two label columns agree line for line with the code: 30 lines say "coded", 121 say "not coded", and the 121 blank lines carry no work-type label at all.
+- For worry 4, I counted the work-type labels straight out of the finished file and got exactly what the codes file says — 16 automates, 2 augments, 12 neither, and 11 flagged AI against 19 not. The counts reproduce exactly, so nothing was reshaped.
+- For worry 5, none of the 30 records carries an error, and all 30 came from live calls (the 30 in `data/` were made live; nothing new was called in this step).
+
+Two limits worth keeping in mind: this step cannot make a code more correct, only make the table faithful to the codes you already have (whether an individual code is right is what the validation step is for), and the 121 uncoded patents are still uncoded — this step did not and could not produce them.
+
+Reply `/next` when you want me to start step S2 (coding the remaining 121), or tell me what to change.
+
+-- 2 model steps, tokens: {'in': 60508, 'out': 950, 'reason': 1031, 'cache': 58880}
