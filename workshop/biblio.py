@@ -997,14 +997,15 @@ def retrieve(df: pd.DataFrame, V: np.ndarray, question: str, name: str, k: int =
     return hits.assign(has_abstract=hits.abstract.str.len() >= 100).head(k)
 
 
-def ask_literature(df: pd.DataFrame, V: np.ndarray, question: str, name: str, k: int = 8) -> tuple[str, pd.DataFrame]:
+def ask_literature(df: pd.DataFrame, V: np.ndarray, question: str, name: str, k: int = 8,
+                   system: str = ASK_SYSTEM) -> tuple[str, pd.DataFrame]:
     """RAG in three steps: (1) retrieve the k closest papers THAT HAVE AN ABSTRACT, (2) give their abstracts
     to the LLM with the question, (3) check that every [ID] it cites was really among the retrieved papers."""
     from .llm import chat
     hits = retrieve(df, V, question, name, k=len(df))                                      # 1. retrieve
     hits = hits[hits.has_abstract].head(k)
     sources = "\n\n".join(f"[{r.id}] {r.title} ({r.year})\n{r.abstract[:1200]}" for r in hits.itertuples())
-    answer = chat(f"SOURCES:\n\n{sources}\n\nQUESTION: {question}", system=ASK_SYSTEM)  # 2. generate
+    answer = chat(f"SOURCES:\n\n{sources}\n\nQUESTION: {question}", system=system)  # 2. generate
     answer = re.sub(r"\[([^\]]*)\]", lambda m: "[" + re.sub(r"\b(\d{8,})\b", r"W\1", m.group(1)) + "]", answer)  # LLMs sometimes drop the W
     cited = ["W" + n for n in re.findall(r"\bW?(\d{6,})\b", answer)]                      # 3. check
     bad = sorted(set(cited) - set(hits.id))
@@ -1018,12 +1019,14 @@ class QuestionIdeas(BaseModel):
     questions: list[str] = Field(description="Exactly 5 questions, each one sentence")
 
 
-def suggest_questions(project: str, streams: dict | None = None) -> list[str]:
+SUGGEST_INSTR = ("Suggest 5 questions a PhD student with this project could ask the research literature. "
+                 "They must be answerable from paper abstracts: about findings, mechanisms, conditions, methods or "
+                 "disagreements. Make them varied: at least one about where studies disagree, one about methods or "
+                 "data, and one linking two streams. Plain, specific wording, at most 25 words each.")
+
+
+def suggest_questions(project: str, streams: dict | None = None, instructions: str = SUGGEST_INSTR) -> list[str]:
     """Five questions to ask the literature (Lens 9), drafted by the LLM from your project description."""
     text = "MY PROJECT: " + project + ("\n\nRESEARCH STREAMS IN THE FIELD: " + "; ".join(streams.values()) if streams else "")
-    r = extract(text, QuestionIdeas,
-                "Suggest 5 questions a PhD student with this project could ask the research literature. "
-                "They must be answerable from paper abstracts: about findings, mechanisms, conditions, methods or "
-                "disagreements. Make them varied: at least one about where studies disagree, one about methods or "
-                "data, and one linking two streams. Plain, specific wording, at most 25 words each.")
+    r = extract(text, QuestionIdeas, instructions)
     return r.data.questions[:5] if r.data else ["Where do studies in this field disagree, and why might their results differ?"]

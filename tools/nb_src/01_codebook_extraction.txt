@@ -53,6 +53,24 @@ INSTRUCTIONS = """You are a research assistant coding patent abstracts for an in
 Read the patent abstract and fill in every field of the codebook. Base your answers only on the text."""
 
 %% md
+**The rest of the prompt.** Your instructions are only part of what the model receives. `extract` wraps them in the template below: `{instructions}` becomes your text above, `{schema}` the codebook as JSON, `{text}` the abstract. If an answer fails validation, the helper sends `RETRY` back with the error and asks again (up to 2 times). Both are plain text: edit them like any other prompt.
+
+%% code
+TEMPLATE = '''{instructions}
+
+Return ONLY one JSON object, no other text, matching this JSON schema:
+{schema}
+
+TEXT:
+"""
+{text}
+"""'''
+
+RETRY = """That answer was not valid:
+{error}
+Return ONLY the corrected JSON object."""
+
+%% md
 ## Step 2 · Code one abstract and look under the hood
 
 On the left is what the model actually wrote (the *raw* answer). On the right is the validated object. Some models "think out loud" in `<think>` tags or wrap JSON in code fences; the helper strips all of that.
@@ -60,7 +78,7 @@ On the left is what the model actually wrote (the *raw* answer). On the right is
 %% code
 one = patents.iloc[0]
 print(one.title, "\n")
-result = extract(one.abstract, PatentCode, INSTRUCTIONS)
+result = extract(one.abstract, PatentCode, INSTRUCTIONS, prompt=TEMPLATE, retry=RETRY)
 print(f"attempts: {result.attempts} · source: {result.source}\n")
 print("RAW ANSWER:\n", result.raw[:800])
 
@@ -74,7 +92,7 @@ pd.Series(result.data.model_dump(), name="validated")
 
 %% code
 sample = patents.sample(30, random_state=1)
-codes = extract_many(sample, "abstract", PatentCode, INSTRUCTIONS)
+codes = extract_many(sample, "abstract", PatentCode, INSTRUCTIONS, prompt=TEMPLATE, retry=RETRY)
 ok = codes[codes["error"].isna()]   # rows that were coded successfully
 print("failed rows:", len(codes) - len(ok))
 ok[["id", "title", "is_ai", "technology", "application_domain", "automation_vs_augmentation"]].head(10)
@@ -135,5 +153,5 @@ Or change the list of domains. New fields mean new prompts, so these rows will b
 
 %% code
 # Your turn: edit PatentCode above, run it again, then run this cell
-codes2 = extract_many(sample.head(5), "abstract", PatentCode, INSTRUCTIONS)
+codes2 = extract_many(sample.head(5), "abstract", PatentCode, INSTRUCTIONS, prompt=TEMPLATE, retry=RETRY)
 codes2.drop(columns=["abstract", "claims"], errors="ignore").head()

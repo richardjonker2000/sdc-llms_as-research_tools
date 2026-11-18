@@ -381,8 +381,13 @@ Ask the field a question in plain language. This is **retrieval-augmented genera
 **Part 1 · Questions.** No idea what to ask? The LLM drafts 5 questions from your project description and the field's streams. Pick one, or type your own.
 
 %% code
+SUGGEST_INSTR = ("Suggest 5 questions a PhD student with this project could ask the research literature. "
+                 "They must be answerable from paper abstracts: about findings, mechanisms, conditions, methods or "
+                 "disagreements. Make them varied: at least one about where studies disagree, one about methods or "
+                 "data, and one linking two streams. Plain, specific wording, at most 25 words each.")
+
 lit = topical.merge(papers[["id", "cluster"]], on="id", how="left").assign(stream=lambda d: d.cluster.map(names))
-ideas = suggest_questions(plan.project, names)
+ideas = suggest_questions(plan.project, names, instructions=SUGGEST_INSTR)
 for i, q in enumerate(ideas):
     print(f"ideas[{i}]  {q}")
 
@@ -402,8 +407,15 @@ hits[["short", "stream", "similarity", "has_abstract", "title"]]
 
 The answer is built from **abstracts only**, not full papers. Classics without an abstract from Part 2 are left out of it, so read those yourself.
 
+The rules the model must follow are in `ASK_SYSTEM`, sent as the *system* prompt. The sources and your question follow as `SOURCES: ... QUESTION: ...`.
+
 %% code
-answer, sources = ask_literature(lit, V, QUESTION, name, k=8)
+ASK_SYSTEM = ("You answer questions about a research literature using ONLY the numbered sources given "
+              "(titles and abstracts). Cite every claim as [ID] with the source IDs exactly as given. "
+              "If the sources do not answer the question, say so plainly instead of guessing. "
+              "Note where sources disagree. Be concise: at most 250 words.")
+
+answer, sources = ask_literature(lit, V, QUESTION, name, k=8, system=ASK_SYSTEM)
 display(Markdown(answer))
 sources[["short", "stream", "similarity", "cited_in_answer", "title"]]
 

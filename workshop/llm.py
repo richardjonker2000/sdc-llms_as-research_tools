@@ -241,12 +241,19 @@ TEXT:
 {text}
 \"\"\""""
 
+RETRY = """That answer was not valid:
+{error}
+Return ONLY the corrected JSON object."""
+
 
 def extract(text: str, schema: type[BaseModel], instructions: str, temperature: float = 0.0,
-            max_retries: int = 2) -> Extraction:
-    """Structured output: ask for JSON, validate with pydantic, retry with the error message."""
+            max_retries: int = 2, prompt: str = PROMPT, retry: str = RETRY) -> Extraction:
+    """Structured output: ask for JSON, validate with pydantic, retry with the error message.
+
+    `prompt` wraps your instructions ({instructions}, {schema}, {text}); `retry` is sent back with {error}
+    when an answer fails validation. Notebook 01 shows both."""
     schema_json = json.dumps(schema.model_json_schema(), ensure_ascii=False)
-    messages = [{"role": "user", "content": PROMPT.format(instructions=instructions, schema=schema_json, text=text)}]
+    messages = [{"role": "user", "content": prompt.format(instructions=instructions, schema=schema_json, text=text)}]
     sources, error, raw = [], None, ""
     for attempt in range(1, max_retries + 2):
         rng = random.Random(_key(text, schema_json, attempt, temperature))
@@ -259,8 +266,7 @@ def extract(text: str, schema: type[BaseModel], instructions: str, temperature: 
         except (ValueError, ValidationError) as e:
             error = str(e)[:1500]
             messages = messages + [{"role": "assistant", "content": raw},
-                                   {"role": "user", "content": f"That answer was not valid:\n{error}\n"
-                                                               "Return ONLY the corrected JSON object."}]
+                                   {"role": "user", "content": retry.format(error=error)}]
     return Extraction(None, raw, max_retries + 1, _worst(sources), error)
 
 
@@ -269,7 +275,7 @@ def _worst(sources: list[str]) -> str:
 
 
 def extract_many(df: pd.DataFrame, text_col: str, schema: type[BaseModel], instructions: str,
-                 temperature: float = 0.0, workers: int | None = None) -> pd.DataFrame:
+                 temperature: float = 0.0, workers: int | None = None, **prompts) -> pd.DataFrame:
     """Run extract() on every row, `workers` requests at a time (within the RPM limit).
 
     Failed rows get 'error' filled in instead of stopping the loop; a setup problem (no key, no
@@ -279,7 +285,7 @@ def extract_many(df: pd.DataFrame, text_col: str, schema: type[BaseModel], instr
 
     def one(text: str) -> dict:
         try:
-            r = extract(text, schema, instructions, temperature)
+            r = extract(text, schema, instructions, temperature, **prompts)   # prompts: prompt=, retry=
             row = r.data.model_dump(mode="json") if r.data else {}
             return row | {"_source": r.source, "_attempts": r.attempts, "error": r.error}
         except SetupError:
