@@ -4,6 +4,8 @@ SDC workshop *New Tools, Old Questions* · Session 1 · Wed 25 Nov 2026 · Sino-
 
 Hands-on notebooks showing what LLMs can do with research text: codebook-driven extraction, consistency checks, local decision models, long-document extraction, rewriting, and your own data. No coding experience needed. No coding at all? Use `prompts_chatbot_track.md` in any chatbot.
 
+**Organisers:** `PRESENTER_GUIDE.md` is the script for the session (every prompt, what to say), `REVIEW.md` the review guide for co-organisers, `facilitator_notes.md` the timing and likely questions.
+
 ## 1 · Install (10 minutes, before the session)
 
 **Organisers / demo laptop (macOS or Linux):** `./setup.sh` does everything below (Python packages, `config.env`, Ollama + `tev1`, a notebook 00 check) plus OpenCode and a ready agent demo folder; add `--cache-from <path>` to copy `outputs_cached/` (`./setup.sh --china` uses a PyPI mirror; `--help` for options). Participants follow the steps by hand.
