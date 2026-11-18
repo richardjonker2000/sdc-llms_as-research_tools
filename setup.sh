@@ -184,8 +184,13 @@ if [ "$OLLAMA" = 1 ]; then
         # without the zstd tool we decompress with Python's zstandard package (works when apt is broken).
         case "$(uname -m)" in x86_64) OARCH=amd64 ;; aarch64) OARCH=arm64 ;; *) echo "unsupported CPU $(uname -m)"; exit 1 ;; esac
         OURL_DL="https://github.com/ollama/ollama/releases/download/v$OLLAMA_VERSION/ollama-linux-$OARCH.tar.zst"
-        echo "Installing Ollama $OLLAMA_VERSION into ~/.local/ollama (no sudo; ~1.5 GB download)"
-        rm -rf "$HOME/.local/ollama.new"; mkdir -p "$HOME/.local/ollama.new" "$HOME/.local/bin"
+        # Unpacked it is ~2.4 GB (mostly NVIDIA GPU libraries), plus 833 MB for the model.
+        NEED_MB=3600
+        echo "Installing Ollama $OLLAMA_VERSION into ~/.local/ollama (no sudo; ~1.5 GB download, ~2.4 GB on disk)"
+        rm -rf "$HOME/.local/ollama.new"
+        FREE_MB=$(df -Pm "$HOME" | awk 'NR==2 {print $4}')
+        [ "$FREE_MB" -ge "$NEED_MB" ] || { echo "Only $FREE_MB MB free in $HOME; need about $NEED_MB MB (Ollama + the 833 MB model). Free some space and re-run."; exit 1; }
+        mkdir -p "$HOME/.local/ollama.new" "$HOME/.local/bin"
         if command -v zstd >/dev/null 2>&1; then UNZST=(zstd -d -c)
         else pip_in "$HERE/.venv" zstandard
              UNZST=("$HERE/.venv/bin/python" -c "import sys, zstandard; zstandard.ZstdDecompressor().copy_stream(sys.stdin.buffer, sys.stdout.buffer)"); fi
@@ -257,7 +262,7 @@ echo "Notebook 00: $NB_STATUS"
 cat <<EOF
 Notebooks:   cd "$HERE" && source .venv/bin/activate && jupyter lab     (open notebooks/00_setup.ipynb first)
 Agent demo:  cd "$DEMO_DIR" && ./start_agent.sh
-             then type:  /plan Do AI patents automate rather than augment work, and do Chinese and US firms differ?
+             then type:  /plan  (the research question is in agent_harness/DEMO.md)
              go live for LLM coding: set DRY_RUN=0 in $DEMO_DIR/config.env
 Fresh demo:  ./setup.sh --reset-demo
 EOF
