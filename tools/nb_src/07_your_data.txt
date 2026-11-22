@@ -64,11 +64,23 @@ coded.to_csv("../outputs/my_data_coded.csv", index=False, encoding="utf-8-sig") 
 print("saved outputs/my_data_coded.csv")
 
 %% md
+## What did this cost?
+
+Every answer comes with a count of **tokens** (pieces of words; about 4 characters of English each): tokens **in** (your instructions plus the text) and tokens **out** (the answer, including the model's hidden "thinking"). Providers charge per million tokens. Saved answers keep the counts from the original live call, so this is what the run costs with a live key. Run it after Step 3 to estimate the cost of your whole dataset.
+
+%% code
+PRICE_IN, PRICE_OUT = 0.15, 0.60   # US$ per million tokens: MiniMax M3.1 Flash list price, Nov 2026 (check the provider's page)
+u = usage_table()
+cost = u.tokens_in.sum() / 1e6 * PRICE_IN + u.tokens_out.sum() / 1e6 * PRICE_OUT
+print(f"{len(u)} answers: {u.tokens_in.sum():,} tokens in, {u.tokens_out.sum():,} tokens out ({u.thinking.sum():,} of them thinking)")
+print(f"cost: ${cost:.4f}   per answer: ${cost / max(len(u), 1):.5f}   for 10,000 texts: about ${cost / max(len(u), 1) * 10_000:.2f}")
+
+%% md
 ## Try it yourself
 
 - Add a variable to `MyCode` and re-run Step 3.
 - Run the coding twice with `temperature=0.7` (as in notebook 02) and compare. Which of your variables are least stable?
-- Hand-code 20 rows yourself and compare. That is exactly what Session 2 is about.
+- Hand-code 20 rows yourself and compare, with the agreement measures from notebook 02.
 
 %% code
 # Your turn: a second run at a higher temperature, compared with the first

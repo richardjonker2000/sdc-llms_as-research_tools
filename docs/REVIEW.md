@@ -10,7 +10,7 @@ Demo first, as you suggested: students watch, and follow along on their laptops 
 | --- | --- | --- |
 | 09:45 | Welcome, the three blocks | intro slide (ask me for the link) |
 | 09:48 | Coding with a codebook: patent abstracts become a validated table, quote by quote | `lesson1_text_to_data/01_codebook_extraction.ipynb` |
-| 10:08 | Mapping a field: one research question becomes a map of the literature | `lesson1_text_to_data/08_bibliometrics.ipynb` |
+| 10:08 | Mapping a field: one research question becomes a map of the literature | `lesson1_text_to_data/04_literature_review.ipynb` |
 | 10:15 | A coding agent: it writes the code, the researcher makes every method decision. Includes your "tricks" idea: a LaTeX table and a diagram made by the agent | `lesson2_agentic_coding/demo/DEMO.md` |
 | 10:45 | End | – |
 

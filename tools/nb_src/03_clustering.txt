@@ -1,0 +1,251 @@
+%% md
+# 03 · Discover: group 800 papers without labels, on your laptop
+
+> **Old question:** What is in this pile of texts, before I know what to look for?
+> **New tool:** none, on purpose. Two classic algorithms (TF-IDF word weights and k-means), written out in about 30 lines of numpy. No LLM, no internet, under a second on a laptop CPU.
+> **What you'll see:** 814 abstracts on AI and work turned into numbers, grouped, described, followed over time, and checked for stability. One optional LLM call at the end names the groups.
+
+%% md
+## Supervised vs unsupervised
+
+In notebooks 01 and 02 we **knew what we were looking for**: a codebook, fixed labels, and we could be wrong. Here we **want to discover**: there are no labels, and no right answer, only groupings that are useful and honest. This is the idea behind topic models such as BERTopic: turn texts into numbers, group similar texts, then describe each group.
+
+**Topic models tell you where to read. They are not findings.**
+
+%% code
+import sys, pathlib, re, time, json
+from collections import Counter
+sys.path.insert(0, str(pathlib.Path.cwd().parent))
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from pydantic import BaseModel, Field
+from workshop import *
+
+setup_plots()
+
+%% md
+The data: a prepared sample from OpenAlex, an open database of research papers. Papers about AI, automation and labour markets; we keep the 814 that have an abstract.
+
+%% code
+papers = pd.read_csv("../data/openalex/ai_labour.csv")
+papers = papers[papers.abstract.notna()].reset_index(drop=True)
+print(len(papers), "papers with an abstract,", papers.year.min(), "to", papers.year.max())
+papers[["year", "title", "cited_by_count"]].head()
+
+%% md
+## Step 1 · From text to words
+
+We lowercase the text, split it into words, and drop **stop words**: words like "the" or "study" that appear everywhere and say nothing about the topic. The list is a choice you make, and it changes the result.
+
+%% code
+STOP = set("""a about above after again against all also am an and any are as at be because been before being below
+between both but by can could did do does doing down during each few for from further had has have having he her here
+hers him his how i if in into is it its itself just me more most my no nor not now of off on once only or other our out
+over own same she should so some such than that the their them then there these they this those through to too under
+until up very was we were what when where which while who whom why will with would you your yours paper study studies
+article research results result find findings show shows use using used based analysis evidence effect effects data
+new however may two one first second three well within among across thus therefore whether""".split())
+
+def words(text):
+    text = text.lower().replace("labour", "labor")          # one spelling for British and American English
+    return [w for w in re.findall(r"[a-z][a-z\-]{2,}", text) if w not in STOP]
+
+docs = [words(t + ". " + a) for t, a in zip(papers.title, papers.abstract)]
+print(papers.title[0])
+print(docs[0][:25])
+
+%% md
+## Step 2 · From words to numbers: TF-IDF
+
+Each paper becomes a row of numbers, one column per word.
+
+- **TF** (term frequency): how often the word appears in this paper.
+- **IDF** (inverse document frequency): how rare the word is across all papers. A word in every paper gets weight near 0; a word in a few papers gets a high weight.
+
+Their product says: *this word is frequent here, and rare elsewhere*. We keep words that appear in at least 5 papers and in at most half of them.
+
+%% code
+n_docs = len(docs)
+doc_freq = Counter(w for d in docs for w in set(d))                 # in how many papers does each word appear?
+vocab = sorted(w for w, c in doc_freq.items() if 5 <= c <= 0.5 * n_docs)
+column = {w: i for i, w in enumerate(vocab)}
+
+X = np.zeros((n_docs, len(vocab)))
+for i, d in enumerate(docs):
+    for w, count in Counter(d).items():
+        if w in column:
+            X[i, column[w]] = count                                   # TF: raw counts
+idf = np.log(n_docs / np.array([doc_freq[w] for w in vocab]))
+X = X * idf                                                           # TF x IDF
+X = X / np.linalg.norm(X, axis=1, keepdims=True)                      # every paper gets length 1
+
+print(f"{X.shape[0]} papers x {X.shape[1]} words")
+top = X[0].argsort()[::-1][:8]
+print("highest weights in paper 0:", ", ".join(f"{vocab[j]} ({X[0, j]:.2f})" for j in top))
+
+%% md
+Because every row has length 1, the product of two rows is their **cosine similarity**: 1 means the same word profile, 0 means no words in common. (If a near-identical title shows up, it is a duplicate record: real databases are messy.)
+
+%% code
+similar = (X @ X[0]).argsort()[::-1][1:4]
+print("Most similar to:", papers.title[0], "\n")
+for j in similar:
+    print(f"  {X[0] @ X[j]:.2f}  {papers.title[j]}")
+
+%% md
+## Step 3 · Group the papers: k-means
+
+k-means is a simple loop:
+
+1. Pick *k* random papers as starting **centres**.
+2. Assign every paper to the centre it is most similar to.
+3. Move each centre to the average of its papers.
+4. Repeat 2–3 until nothing changes.
+
+The start is random, so we run it several times and keep the run where papers fit their centres best.
+
+%% code
+def kmeans(X, k, seed=0, max_rounds=100):
+    rng = np.random.default_rng(seed)
+    centres = X[rng.choice(len(X), k, replace=False)]                   # 1. random start
+    for _ in range(max_rounds):
+        group = (X @ centres.T).argmax(axis=1)                          # 2. nearest centre
+        new = np.array([X[group == j].mean(axis=0) if (group == j).any() else centres[j]
+                        for j in range(k)])                           # 3. move centres
+        new = new / np.linalg.norm(new, axis=1, keepdims=True)
+        if np.allclose(new, centres):                                   # 4. stop when stable
+            break
+        centres = new
+    fit = (X @ centres.T).max(axis=1).mean()                            # average similarity to own centre
+    return group, centres, fit
+
+def best_of(X, k, seeds):
+    runs = [kmeans(X, k, seed) for seed in seeds]
+    return max(runs, key=lambda run: run[2])                            # keep the best fit
+
+K = 6
+start = time.perf_counter()
+group, centres, fit = best_of(X, K, seeds=range(20))
+print(f"{K} groups, 20 restarts, {time.perf_counter() - start:.2f} seconds; fit = {fit:.3f}")
+papers["group"] = group + 1
+papers.group.value_counts().sort_index()
+
+%% md
+## Step 4 · What is in each group?
+
+Two ways to describe a group: its **top words** (the highest weights in its centre), and its **most typical papers** (the ones closest to the centre). Read the titles: do the words describe them?
+
+%% code
+for j in range(K):
+    top_words = [vocab[w] for w in centres[j].argsort()[::-1][:10]]
+    members = np.where(group == j)[0]
+    typical = members[(X[members] @ centres[j]).argsort()[::-1][:3]]
+    print(f"Group {j + 1} · {len(members)} papers · {', '.join(top_words)}")
+    for i in typical:
+        print(f"     {papers.year[i]}  {papers.title[i][:100]}")
+    print()
+
+%% md
+## Step 5 · How do the groups develop over time?
+
+%% code
+periods = pd.cut(papers.year, [0, 1999, 2009, 2016, 2020, 2026],
+                 labels=["before 2000", "2000-09", "2010-16", "2017-20", "2021-26"])
+share = pd.crosstab(periods, papers.group, normalize="index")
+ax = share.plot.bar(stacked=True, rot=0, width=0.75, color=COLORS[:K], edgecolor="#fcfcfb", linewidth=1)
+ax.set_title("Share of papers per group, by period"); ax.set_xlabel(""); ax.set_ylabel("share of papers")
+ax.legend(title="group", bbox_to_anchor=(1, 1))
+plt.show()
+pd.crosstab(periods, papers.group, margins=True, margins_name="all")
+
+%% md
+## Step 6 · How many groups? There is no right *k*
+
+More groups always fit better, so fit alone cannot pick *k*. Look for the point where adding groups stops helping much, and then read the groups: are they **useful** for your question?
+
+%% code
+ks = range(2, 13)
+fits = [best_of(X, k, seeds=range(5))[2] for k in ks]
+fig, ax = plt.subplots(figsize=(6, 3.5))
+ax.plot(list(ks), fits, marker="o", color=COLORS[0])
+ax.set_xlabel("number of groups k"); ax.set_ylabel("fit (avg. similarity to own centre)")
+ax.set_title("More groups always fit better")
+plt.show()
+
+%% md
+## Step 7 · Run it again: does it find the same groups?
+
+This is agreement again (notebook 02), but the groups have no names, so we cannot compare labels directly. Instead we compare **pairs of papers**: of the pairs that were in the same group in the first run, what share are still together in a second run with different random starts?
+
+%% code
+def kept_together(g1, g2):
+    same1 = g1[:, None] == g1[None, :]
+    same2 = g2[:, None] == g2[None, :]
+    pairs = np.triu(np.ones_like(same1, dtype=bool), k=1)             # each pair of papers once
+    return (same1 & same2 & pairs).sum() / (same1 & pairs).sum()
+
+for seeds in [range(20, 40), range(40, 60), range(60, 80)]:
+    other, _, _ = best_of(X, K, seeds)
+    print(f"second run (restarts {seeds.start}-{seeds.stop - 1}): {kept_together(group, other):.0%} of pairs still together")
+sizes = np.bincount(group) / len(group)
+print(f"\nfor comparison, random groups of the same sizes: about {(sizes ** 2).sum():.0%}")
+
+%% md
+Many papers move between groups from run to run: the core of each group is stable, the **boundaries are not**. That is normal for text, and it is why groups are a map for reading, not a result to report as it is.
+
+## Step 8 · Optional: let an LLM name the groups
+
+So far, no LLM. Here we add one call, like BERTopic's LLM step: we give it each group's top words and typical titles, and ask for a short, distinct name. **You stay the judge**: check every name against Step 4.
+
+%% code
+profiles = []
+for j in range(K):
+    members = np.where(group == j)[0]
+    typical = members[(X[members] @ centres[j]).argsort()[::-1][:5]]
+    profiles.append({"group": j + 1, "papers": int(len(members)),
+                     "top_words": [vocab[w] for w in centres[j].argsort()[::-1][:10]],
+                     "typical_titles": [papers.title[i] for i in typical]})
+
+class GroupName(BaseModel):
+    group: int
+    name: str = Field(description="A short, specific name, 2 to 6 words, that sets this group apart from the others")
+
+class GroupNames(BaseModel):
+    groups: list[GroupName]
+
+NAME_INSTR = ("Below are groups of research papers on AI and work, found by clustering their abstracts. "
+              "Name every group. The names must be clearly DIFFERENT from each other: "
+              "use the top words and the typical titles, not generic labels.")
+
+print(NAME_INSTR, "\n")
+print(json.dumps(profiles[0], indent=1)[:600], "...")
+
+%% code
+named = extract(json.dumps(profiles, ensure_ascii=False, indent=1), GroupNames, NAME_INSTR)
+names = {g.group: g.name for g in named.data.groups} if named.data else {}
+for p in profiles:
+    print(f"Group {p['group']} ({p['papers']} papers): {names.get(p['group'], '?')}")
+    print(f"     words: {', '.join(p['top_words'][:6])}")
+
+%% md
+## What did this cost?
+
+Every answer comes with a count of **tokens** (pieces of words; about 4 characters of English each): tokens **in** (your instructions plus the text) and tokens **out** (the answer, including the model's hidden "thinking"). Providers charge per million tokens. Saved answers keep the counts from the original live call, so this is what the run costs with a live key. Steps 1–7 cost nothing: they run on your CPU.
+
+%% code
+PRICE_IN, PRICE_OUT = 0.15, 0.60   # US$ per million tokens: MiniMax M3.1 Flash list price, Nov 2026 (check the provider's page)
+u = usage_table()
+cost = u.tokens_in.sum() / 1e6 * PRICE_IN + u.tokens_out.sum() / 1e6 * PRICE_OUT
+print(f"{len(u)} answers: {u.tokens_in.sum():,} tokens in, {u.tokens_out.sum():,} tokens out ({u.thinking.sum():,} of them thinking)")
+print(f"cost: ${cost:.4f}   (the clustering itself, Steps 1-7: $0)")
+
+%% md
+## Try it yourself
+
+- Change `K` in Step 3 to 4 or 10 and re-run Steps 3–7. Which groups split, and which merge?
+- Add words to `STOP` (for example *employment*, *workers*) and re-run from Step 1. The groups change: the stop word list is a modelling choice.
+- Use another prepared sample: `green_innovation` or `china_innovation` in the first cell.
+
+%% md
+**Notebook 04** builds a full literature review on the same idea: a research question, a search, citations plus word similarity, groups named by an LLM, and a chat with the literature.

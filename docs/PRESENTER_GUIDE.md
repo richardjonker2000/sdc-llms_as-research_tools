@@ -6,7 +6,7 @@ Richard's script for the hour: what to open, what to type, what to say. Every pr
 | --- | --- | --- |
 | 09:45 | Welcome | slide 1 |
 | 09:48 | Coding with a codebook (20 min) | `lesson1_text_to_data/01_codebook_extraction.ipynb` |
-| 10:08 | Mapping a field (7 min) | `lesson1_text_to_data/08_bibliometrics.ipynb` |
+| 10:08 | Mapping a field (7 min) | `lesson1_text_to_data/04_literature_review.ipynb` |
 | 10:15 | A coding agent (30 min) | slide 2, then the terminal |
 | 10:45 | End | – |
 

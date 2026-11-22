@@ -1,0 +1,245 @@
+%% md
+# 02 · Do the coders agree? Agreement between runs and between models
+
+> **Old question:** Is our coding reliable? Would a second coder agree with the first?
+> **New tool:** LLMs as coders. We compare three of them: one model run twice, and a second model.
+> **What you'll see:** percent agreement, why it flatters you, Cohen's kappa computed by hand, a weighted kappa for ordered labels, Fleiss' kappa for three coders, and the tasks the coders disagree on.
+
+%% md
+## Background
+
+We classify **O\*NET work tasks** by how *exposed* they are to large language models. O\*NET is the US Department of Labor's database describing what people do in about 1,000 occupations. Economists use task-level exposure scores like these to study which jobs AI might change.
+
+Our three coders, all using the same rubric:
+
+| Coder | Who | How |
+| --- | --- | --- |
+| A | MiniMax M3.1 Flash | temperature 0 (its most likely answer) |
+| B | MiniMax M3.1 Flash | temperature 0.7 (some randomness) |
+| C | Claude (Anthropic) | a different model, labels saved in `data/onet_labels_claude.csv` |
+
+A against B asks: **does one model agree with itself?** A against C asks: **do two different models agree?** None of them is a human. For a real study you would add your own hand coding as one more coder, and every measure below works the same way.
+
+%% code
+import sys, pathlib, json, time
+sys.path.insert(0, str(pathlib.Path.cwd().parent))
+from typing import Literal
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+from pydantic import BaseModel, Field
+from workshop import *
+from workshop.llm import PROMPT
+
+setup_plots()
+status()
+
+%% code
+tasks = pd.read_csv("../data/onet_tasks.csv")
+claude = pd.read_csv("../data/onet_labels_claude.csv")
+sample = tasks.merge(claude[["task_id"]], on="task_id")   # the 40 tasks Claude coded
+print(len(sample), "tasks from", sample.occupation_title.nunique(), "occupations")
+sample[["occupation_title", "task"]].head()
+
+%% md
+## Step 1 · The rubric, and the exact prompt
+
+Three levels, written as instructions plus a codebook. The `reason` field makes every answer easy to inspect.
+
+%% code
+RUBRIC = """You code O*NET work tasks for exposure to large language models (LLMs) such as ChatGPT.
+high: an LLM alone could do most of this task today, because it is mainly reading, writing or analysing text or data.
+medium: an LLM could do part of the task, or could do it only with extra tools, data access or human checks.
+low: the task is mainly physical or in-person, or depends on presence, relationships or formal authority."""
+
+class Exposure(BaseModel):
+    label: Literal["high", "medium", "low"]
+    reason: str = Field(description="One short sentence explaining the label")
+
+%% md
+This is **exactly** what the model receives for the first task: the rubric, the codebook as a JSON schema, and the text. The same template as in notebook 01. Claude got the same rubric.
+
+%% code
+schema_json = json.dumps(Exposure.model_json_schema(), ensure_ascii=False)
+print(PROMPT.format(instructions=RUBRIC, schema=schema_json, text=sample.task.iloc[0]))
+
+%% md
+## Step 2 · Collect the codes
+
+Coders A and B: the same model, twice. Coder C: Claude's saved labels.
+
+%% code
+run_a = extract_many(sample, "task", Exposure, RUBRIC, temperature=0.0)
+run_b = extract_many(sample, "task", Exposure, RUBRIC, temperature=0.7)
+print("failed rows:", run_a["error"].notna().sum() + run_b["error"].notna().sum())
+
+codes = sample[["task_id", "occupation_title", "task"]].assign(
+    A=run_a["label"], B=run_b["label"], reason_A=run_a["reason"], reason_B=run_b["reason"])
+codes = codes.merge(claude[["task_id", "label"]].rename(columns={"label": "C"}), on="task_id")
+codes = codes.dropna(subset=["A", "B", "C"])            # keep tasks every coder labelled
+print(len(codes), "tasks coded by all three")
+codes[["task", "A", "B", "C"]].head(10)
+
+%% md
+## Step 3 · Percent agreement
+
+The simplest measure: in what share of tasks do two coders give the same label?
+
+%% code
+def percent_agreement(x, y):
+    return (x == y).mean()
+
+print(f"A vs B (same model, twice):  {percent_agreement(codes.A, codes.B):.0%}")
+print(f"A vs C (two models):         {percent_agreement(codes.A, codes.C):.0%}")
+print(f"B vs C:                      {percent_agreement(codes.B, codes.C):.0%}")
+
+%% md
+## Step 4 · Where do they agree? The confusion table
+
+Rows are coder A's labels, columns coder C's. The diagonal is agreement; everything off the diagonal shows **which** labels get confused.
+
+%% code
+LEVELS = ["high", "medium", "low"]
+table = pd.crosstab(pd.Categorical(codes.A, LEVELS), pd.Categorical(codes.C, LEVELS),
+                    rownames=["A: MiniMax"], colnames=["C: Claude"], dropna=False)
+table
+
+%% code
+fig, ax = plt.subplots(figsize=(4.5, 4))
+ax.imshow(table.values, cmap="Blues")
+ax.set_xticks(range(3), LEVELS); ax.set_yticks(range(3), LEVELS)
+ax.set_xlabel("C: Claude"); ax.set_ylabel("A: MiniMax"); ax.grid(False)
+for i in range(3):
+    for j in range(3):
+        ax.text(j, i, table.values[i, j], ha="center", va="center",
+                color="white" if table.values[i, j] > table.values.max() / 2 else "black")
+ax.set_title("Same rubric, two models")
+plt.show()
+
+%% md
+Disagreement between **neighbouring** levels (high vs medium, medium vs low) means a boundary in the rubric is fuzzy. Disagreement between high and low would mean the coders read the task completely differently.
+
+Also compare the **row totals with the column totals**. If one coder uses a label much more often than the other, the difference is **systematic**, not random noise: one model reads the rubric more generously than the other.
+
+## Step 5 · Why percent agreement flatters you: Cohen's kappa
+
+Suppose most tasks are "medium". Two coders who both say "medium" most of the time will agree often **by chance alone**, without reading anything. Cohen's kappa corrects for that:
+
+$$\kappa = \frac{p_o - p_e}{1 - p_e}$$
+
+- $p_o$ = observed agreement (Step 3)
+- $p_e$ = agreement expected by chance: for each label, the chance both coders pick it, given how often each uses it
+
+κ = 1 is perfect agreement, κ = 0 is no better than chance. Here it is, step by step:
+
+%% code
+def cohen_kappa(x, y, levels=LEVELS, show=False):
+    p_o = (x == y).mean()
+    p_e = sum((x == lvl).mean() * (y == lvl).mean() for lvl in levels)
+    if show:
+        for lvl in levels:
+            print(f"  '{lvl}': coder 1 uses it {(x == lvl).mean():.0%}, coder 2 {(y == lvl).mean():.0%}"
+                  f"  -> both by chance {(x == lvl).mean() * (y == lvl).mean():.1%}")
+        print(f"  p_o = {p_o:.3f}   p_e = {p_e:.3f}   kappa = ({p_o:.3f} - {p_e:.3f}) / (1 - {p_e:.3f})")
+    return (p_o - p_e) / (1 - p_e)
+
+print("A vs C:")
+k = cohen_kappa(codes.A, codes.C, show=True)
+print(f"  = {k:.2f}")
+
+%% md
+## Step 6 · Ordered labels: weighted kappa
+
+Our labels have an order: high > medium > low. Mixing up high and low is a bigger mistake than high and medium, but plain kappa counts every disagreement the same. **Weighted kappa** gives partial credit to near misses: a one-step disagreement costs half as much as a two-step one.
+
+%% code
+def weighted_kappa(x, y, levels=LEVELS):
+    k = len(levels)
+    pos = {lvl: i for i, lvl in enumerate(levels)}
+    observed = np.zeros((k, k))
+    for a, b in zip(x, y):
+        observed[pos[a], pos[b]] += 1
+    observed /= observed.sum()                                       # share of tasks in each cell
+    expected = np.outer(observed.sum(axis=1), observed.sum(axis=0))  # what chance would give
+    distance = np.abs(np.subtract.outer(range(k), range(k))) / (k - 1)  # 0 on the diagonal, 0.5, 1
+    return 1 - (distance * observed).sum() / (distance * expected).sum()
+
+print(f"A vs C: kappa = {cohen_kappa(codes.A, codes.C):.2f}, weighted kappa = {weighted_kappa(codes.A, codes.C):.2f}")
+
+%% md
+## Step 7 · All pairs side by side
+
+%% code
+pairs = [("A", "B", "same model, twice"), ("A", "C", "two models"), ("B", "C", "two models")]
+pd.DataFrame([{"pair": f"{p} vs {q}", "what": what,
+               "agreement": f"{percent_agreement(codes[p], codes[q]):.0%}",
+               "kappa": round(cohen_kappa(codes[p], codes[q]), 2),
+               "weighted kappa": round(weighted_kappa(codes[p], codes[q]), 2)}
+              for p, q, what in pairs])
+
+%% md
+**How to read kappa.** A common rough guide (Landis & Koch, 1977): below 0.2 slight, 0.2–0.4 fair, 0.4–0.6 moderate, 0.6–0.8 substantial, above 0.8 almost perfect. Treat it as a guide, not a rule: kappa depends on how often each label occurs, so always report the confusion table too.
+
+## Step 8 · More than two coders: Fleiss' kappa
+
+With three or more coders, compare them all at once. For each task, count how many coders chose each label; then ask how often pairs of coders agree, compared with chance.
+
+%% code
+def fleiss_kappa(labels: pd.DataFrame, levels=LEVELS):
+    counts = np.array([[(row == lvl).sum() for lvl in levels] for row in labels.to_numpy()])  # tasks x levels
+    n = counts.sum(axis=1)[0]                                    # coders per task
+    agree_per_task = ((counts ** 2).sum(axis=1) - n) / (n * (n - 1))  # share of coder pairs that agree
+    share = counts.sum(axis=0) / counts.sum()                    # how often each label is used overall
+    p_o, p_e = agree_per_task.mean(), (share ** 2).sum()
+    return (p_o - p_e) / (1 - p_e)
+
+print(f"Fleiss' kappa, A + B + C: {fleiss_kappa(codes[['A', 'B', 'C']]):.2f}")
+
+%% md
+You will also meet **Krippendorff's alpha** in papers. It handles any number of coders, missing codes and ordered scales in one measure; for a study, the `krippendorff` Python package computes it.
+
+## Step 9 · Read the disagreements
+
+The numbers tell you **how much** coders disagree. Only reading tells you **why**. Is the task ambiguous, or is the rubric unclear?
+
+%% code
+disagree = codes[codes.A != codes.C]
+print(len(disagree), "tasks where MiniMax (A) and Claude (C) disagree\n")
+for r in disagree.itertuples():
+    print(f"[{r.occupation_title}] {r.task}")
+    print(f"   MiniMax: {r.A:<6}  because: {r.reason_A}")
+    print(f"   Claude:  {r.C}\n")
+
+%% md
+**Discussion.**
+- Agreement between runs of one model is the **floor**: a model can be consistently wrong.
+- Agreement between two models is better, but two models can share the same blind spot.
+- For a thesis: code a sample **yourself first**, report agreement with the model, and read the disagreements. With 100 hand-coded examples you can also correct the bias that coding errors cause in later regressions.
+
+%% code
+pathlib.Path("../outputs").mkdir(exist_ok=True)
+runs = codes.rename(columns={"A": "label_t0", "B": "label_t07", "reason_A": "reason_t0", "reason_B": "reason_t07", "C": "label_claude"})
+runs.to_csv("../outputs/onet_exposure_runs.csv", index=False)
+print("saved outputs/onet_exposure_runs.csv (used in notebook 10)")
+
+%% md
+## What did this cost?
+
+Every answer comes with a count of **tokens** (pieces of words; about 4 characters of English each): tokens **in** (your instructions plus the text) and tokens **out** (the answer, including the model's hidden "thinking"). Providers charge per million tokens. Saved answers keep the counts from the original live call, so this is what the run costs with a live key.
+
+%% code
+PRICE_IN, PRICE_OUT = 0.15, 0.60   # US$ per million tokens: MiniMax M3.1 Flash list price, Nov 2026 (check the provider's page)
+u = usage_table()
+cost = u.tokens_in.sum() / 1e6 * PRICE_IN + u.tokens_out.sum() / 1e6 * PRICE_OUT
+print(f"{len(u)} answers: {u.tokens_in.sum():,} tokens in, {u.tokens_out.sum():,} tokens out ({u.thinking.sum():,} of them thinking)")
+print(f"cost: ${cost:.4f}   per answer: ${cost / max(len(u), 1):.5f}   for 10,000 texts: about ${cost / max(len(u), 1) * 10_000:.2f}")
+
+%% md
+## Try it yourself
+
+Edit the rubric: add an example task to each level, or merge `medium` into the other two. Re-run Step 2 (new rubric = new answers) and see whether kappa goes up. A clearer rubric usually means fewer disagreements, for models and for humans.
+
+%% code
+# Your turn: change RUBRIC above, run this cell, then re-run Steps 3-9 with it
+run_new = extract_many(sample.head(10), "task", Exposure, RUBRIC, temperature=0.0)
+run_new[["label", "reason"]]

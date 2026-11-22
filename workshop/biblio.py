@@ -1,4 +1,4 @@
-"""Bibliometrics helpers for notebook 08: citation networks, clustering, search and an interactive map."""
+"""Bibliometrics helpers for notebook 04: citation networks, clustering, search and an interactive map."""
 from __future__ import annotations
 
 import html
@@ -107,7 +107,7 @@ SOCIAL_SCIENCES = "primary_topic.domain.id:2"   # OpenAlex domain 2: economics, 
 
 def harvest(query: str, seed_doi: str | None = None, n_citing: int = 400, n_per_period: int = 200,
             n_classics: int = 150, domain: str | None = None) -> pd.DataFrame:
-    """Build a topic sample from OpenAlex in four steps (see notebook 08, "How this sample is built"):
+    """Build a topic sample from OpenAlex in four steps (see notebook 04, "How this sample is built"):
 
     1. seed: `seed_doi`, or the most-cited paper among the 100 most relevant matches for the query;
     2. forward: the seed's references, plus the `n_citing` most-cited papers that cite the seed;
@@ -692,10 +692,10 @@ def semantic_search(df: pd.DataFrame, V: np.ndarray, text: str, name: str, k: in
 
 
 def load_field(name: str, folder: Path = ROOT / "outputs") -> tuple[pd.DataFrame, dict]:
-    """The field saved by notebook 08 (papers with their stream), plus {cluster: stream name}."""
+    """The field saved by notebook 04 (papers with their stream), plus {cluster: stream name}."""
     path = folder / f"field_{name}.csv"
     if not path.exists():
-        raise SetupError(f"Run notebook 08 with this topic first: it saves outputs/{path.name}.")
+        raise SetupError(f"Run notebook 04 with this topic first: it saves outputs/{path.name}.")
     df = pd.read_csv(path, dtype=str).fillna("")
     df = _tidy(df.drop(columns=["short"], errors="ignore"))
     df["cluster"] = pd.to_numeric(df["cluster"], errors="coerce").fillna(-1).astype(int)
@@ -724,7 +724,7 @@ def foundation_table(df: pd.DataFrame, n: int = 15) -> pd.DataFrame:
     return out.nlargest(n, "cited_by_sample")[["short", "title", "venue", "cited_by_sample", "found_via"]]
 
 
-# ---------------------------------------------------------------- hybrid streams (notebook 08)
+# ---------------------------------------------------------------- hybrid streams (notebook 04)
 def hybrid_graph(G_cite: nx.Graph, V: np.ndarray, ids: list, k: int = 15, alpha: float = 0.5) -> nx.Graph:
     """Combine citation links (bibliographic coupling) and meaning links (k most similar papers by embedding).
 
@@ -775,7 +775,7 @@ def stream_profiles(df: pd.DataFrame, col: str = "cluster", n_terms: int = 8, n_
     return out
 
 
-# ---------------------------------------------------------------- from research question to search (notebook 08)
+# ---------------------------------------------------------------- from research question to search (notebook 04)
 EXAMPLES = {
     "fdi_spillovers": "Does foreign direct investment lead to technology spillovers to domestic firms, and does this "
                       "depend on their absorptive capacity? I'm especially interested in China.",
@@ -833,7 +833,7 @@ def seed_candidates(query: str, n: int = 15, domain: str | None = SOCIAL_SCIENCE
     return pd.DataFrame(saved[key])
 
 
-# ---------------------------------------------------------------- plan_search: research question -> tested search (notebook 08)
+# ---------------------------------------------------------------- plan_search: research question -> tested search (notebook 04)
 from dataclasses import dataclass  # noqa: E402
 
 from pydantic import BaseModel, Field  # noqa: E402

@@ -1,5 +1,5 @@
 %% md
-# 03 · A tiny model on your laptop that answers with probabilities
+# 10 · A tiny model on your laptop that answers with probabilities
 
 > **Old question:** When can we trust automated coding, and when should a human look?
 > **New tool:** a *decision model* (`tev1:0.8b`, about 800 MB) running locally in Ollama. It writes no text. It returns a probability for each option.
@@ -26,10 +26,10 @@ status()
 
 %% code
 tasks = pd.read_csv("../data/onet_tasks.csv")
-gold = pd.read_csv("../data/gold_onet.csv")
+gold = pd.read_csv("../data/onet_labels_claude.csv")
 data = tasks.merge(gold[["task_id", "label"]], on="task_id")
 data["gold"] = data["label"].map({"high": "yes", "medium": "yes", "low": "no"})
-print(len(data), "tasks with a reference label (draft labels, to be checked by a human coder)")
+print(len(data), "tasks with a reference label (coded by Claude, a second LLM: replace with your own hand coding for real work)")
 
 %% md
 ## Step 1 · One task, three questions, one call

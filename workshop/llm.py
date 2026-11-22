@@ -169,14 +169,36 @@ def _complete(messages: list[dict], temperature: float, fake) -> tuple[str, str]
     key = _key("chat", CFG["provider"], CFG["model"], messages, temperature, *([extra] if extra else []))
     hit = _cache_get(key)
     if hit is not None:
+        _record_usage("cache", hit.get("usage") or {})
         return _log("cache", key) or hit["raw"], "cache"
     if CFG["dry_run"]:
         return _log("fake", key) or fake(), "fake"
     _log("live", key)
     raw, usage = _call_api(messages, temperature)
+    _record_usage("live", usage)
     _cache_put(key, {"provider": CFG["provider"], "model": CFG["model"], "temperature": temperature,
                      "params": extra, "messages": messages, "raw": raw, "usage": usage})
     return raw, "live"
+
+
+USAGE: list[dict] = []   # one row per answer this session (live or from the cache), for cost estimates
+
+
+def _record_usage(source: str, usage: dict) -> None:
+    USAGE.append({"source": source, "tokens_in": usage.get("prompt_tokens", 0),
+                  "tokens_out": usage.get("completion_tokens", 0),
+                  "thinking": (usage.get("completion_tokens_details") or {}).get("reasoning_tokens", 0)})
+
+
+def usage_table() -> pd.DataFrame:
+    """Token counts of every answer since the kernel started (or since reset_usage()).
+    Saved answers keep the counts from the original live call, so the cost is what the run would cost live.
+    Fake answers (dry run) are not counted."""
+    return pd.DataFrame(USAGE, columns=["source", "tokens_in", "tokens_out", "thinking"])
+
+
+def reset_usage() -> None:
+    USAGE.clear()
 
 
 def _log(source: str, key: str) -> None:

@@ -5,7 +5,7 @@
 > **New tool:** AI embeddings, co-citation analysis, trend detection, and an LLM-drafted field memo with checked citations.
 > **What you'll take home:** "hidden connections" between literatures, the field's schools of thought, emerging themes, who publishes where, and a one-page field memo.
 
-**Run notebook 08 first.** This notebook continues with the field 08 mapped last: same papers, same research streams, same project description. Each lens stands on its own: pick the ones useful to you.
+**Run notebook 04 first.** This notebook continues with the field 08 mapped last: same papers, same research streams, same project description. Each lens stands on its own: pick the ones useful to you.
 
 %% code
 import sys, pathlib, re, json
@@ -21,14 +21,14 @@ setup_plots()
 status()
 
 %% code
-settings = json.load(open("../outputs/last_field.json", encoding="utf-8"))   # written by notebook 08
+settings = json.load(open("../outputs/last_field.json", encoding="utf-8"))   # written by notebook 04
 name = settings["name"]
-MY_PROJECT = settings["project"]           # your project description from notebook 08; or write your own
-papers, names = load_field(name)           # the field notebook 08 mapped last
+MY_PROJECT = settings["project"]           # your project description from notebook 04; or write your own
+papers, names = load_field(name)           # the field notebook 04 mapped last
 papers = papers[is_topical(papers)].reset_index(drop=True)   # the same papers 08 embedded and mapped (no classics)
 G_cite = coupling_graph(papers)            # the citation network, rebuilt (a few seconds)
-V, how = paper_vectors(papers, name)       # meaning-vectors (saved by notebook 08, so no new embedding calls)
-print(len(papers), "papers ·", len(names), "research streams from notebook 08 · meaning from:", how)
+V, how = paper_vectors(papers, name)       # meaning-vectors (saved by notebook 04, so no new embedding calls)
+print(len(papers), "papers ·", len(names), "research streams from notebook 04 · meaning from:", how)
 pd.Series(names, name="stream").to_frame()
 
 %% md
@@ -42,7 +42,7 @@ hidden_connections(papers, V, G_cite, n=8)[["similarity", "paper_a", "stream_a",
 %% md
 ## Lens 2 · Schools of thought (co-citation)
 
-Notebook 08 mapped the **current** papers. Co-citation maps their **foundations**: two older works are linked when the same papers cite them *together*. Works that are often cited together form the field's "schools of thought", its shared building blocks. We take the 150 works the corpus cites most. Their titles come from OpenAlex once and are then saved; offline, only works already in the sample are shown.
+Notebook 04 mapped the **current** papers. Co-citation maps their **foundations**: two older works are linked when the same papers cite them *together*. Works that are often cited together form the field's "schools of thought", its shared building blocks. We take the 150 works the corpus cites most. Their titles come from OpenAlex once and are then saved; offline, only works already in the sample are shown.
 
 %% code
 CC, refs = foundations(papers, name, top=150)   # refs.cited_by_count = how often THIS field cites the work

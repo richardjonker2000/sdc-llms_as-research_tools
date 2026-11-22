@@ -1,5 +1,5 @@
 %% md
-# 08 · Add-on: from one paper to a map of the field
+# 04 · A literature review: from one question to a map of the field
 
 > **Old question:** How do I get an overview of *my* research field (its streams, classics, methods and gaps) without reading 1,000 papers?
 > **New tool:** citation networks and unsupervised clustering to find the structure, then an LLM to name, code and question it, with every step checked.
@@ -477,6 +477,18 @@ papers.assign(stream=papers.cluster.map(names)).drop(columns=["refs"]).to_csv(
 json.dump({"name": name, "project": MY_PROJECT, "research_question": plan.question, "query": plan.query},
           open("../outputs/last_field.json", "w", encoding="utf-8"), ensure_ascii=False)   # notebook 09 starts here
 print("saved", out.name, "and", f"field_{name}.csv", "in outputs/")
+
+%% md
+## What did this cost?
+
+Every answer comes with a count of **tokens** (pieces of words; about 4 characters of English each): tokens **in** (your instructions plus the text) and tokens **out** (the answer, including the model's hidden "thinking"). Providers charge per million tokens. Saved answers keep the counts from the original live call, so this is what the run costs with a live key. Embeddings (the meaning-vectors) are not counted here; they cost far less than chat answers.
+
+%% code
+PRICE_IN, PRICE_OUT = 0.15, 0.60   # US$ per million tokens: MiniMax M3.1 Flash list price, Nov 2026 (check the provider's page)
+u = usage_table()
+cost = u.tokens_in.sum() / 1e6 * PRICE_IN + u.tokens_out.sum() / 1e6 * PRICE_OUT
+print(f"{len(u)} answers: {u.tokens_in.sum():,} tokens in, {u.tokens_out.sum():,} tokens out ({u.thinking.sum():,} of them thinking)")
+print(f"cost: ${cost:.4f}   per answer: ${cost / max(len(u), 1):.5f}   for 10,000 texts: about ${cost / max(len(u), 1) * 10_000:.2f}")
 
 %% md
 ## What to take away

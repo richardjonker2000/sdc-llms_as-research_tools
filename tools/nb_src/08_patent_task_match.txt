@@ -1,5 +1,5 @@
 %% md
-# 06 · Bonus: which work tasks could an AI patent perform?
+# 08 · Bonus: which work tasks could an AI patent perform?
 
 > **Old question:** Which occupations are exposed to new technologies? (Webb, 2020, linked patent text to O\*NET tasks.)
 > **New tool:** an LLM that reads a patent and picks, from a shortlist, the work tasks the invention could do.
@@ -19,7 +19,7 @@ from workshop import *
 setup_plots()
 patents = pd.read_csv("../data/patents.csv")
 tasks = pd.read_csv("../data/onet_tasks.csv")
-shortlist = tasks.merge(pd.read_csv("../data/gold_onet.csv")[["task_id", "label"]], on="task_id")
+shortlist = tasks.merge(pd.read_csv("../data/onet_labels_claude.csv")[["task_id", "label"]], on="task_id")
 print(len(shortlist), "tasks from", shortlist.occupation_title.nunique(), "occupations")
 
 %% md
@@ -108,7 +108,7 @@ plt.show()
 %% md
 ## Step 6 · Cross-check with the exposure labels
 
-Notebook 02 rated each task's exposure to *language models* directly (the reference labels in `gold_onet.csv`). The patent route is a different way to measure exposure. It asks what *patented AI inventions* could do. Do the two agree? If they measure the same thing, tasks rated **high** should be matched more often than tasks rated **low**.
+Notebook 02 rated each task's exposure to *language models* directly (the reference labels in `onet_labels_claude.csv`). The patent route is a different way to measure exposure. It asks what *patented AI inventions* could do. Do the two agree? If they measure the same thing, tasks rated **high** should be matched more often than tasks rated **low**.
 
 %% code
 check = shortlist.groupby("label")["matched"].agg(["sum", "size", "mean"]).reindex(["high", "medium", "low"])

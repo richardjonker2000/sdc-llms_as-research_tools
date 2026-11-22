@@ -1,5 +1,5 @@
 %% md
-# 04 · Long documents: extract first, then aggregate
+# 05 · Long documents: extract first, then aggregate
 
 > **Old question:** How do we compare long, unstructured documents, such as the eligibility rules of 30 clinical trials, without reading them all?
 > **New tool:** an LLM that turns each long text into a few structured fields, followed by ordinary counting and plotting.
@@ -81,7 +81,7 @@ print(f"{share:.0%} of trials require a previous treatment")
 print(f"{exclusions.nunique()} different exclusion labels in total")
 
 %% md
-Notice how many *different* exclusion labels there are. "Pregnancy", "pregnant or breastfeeding" and "pregnant women" count separately. Making categories consistent is a rewriting task (see notebook 05), or you can give the model a fixed list of categories to choose from.
+Notice how many *different* exclusion labels there are. "Pregnancy", "pregnant or breastfeeding" and "pregnant women" count separately. Making categories consistent is a rewriting task (see notebook 06), or you can give the model a fixed list of categories to choose from.
 
 ## Step 3 · Check against the registry
 

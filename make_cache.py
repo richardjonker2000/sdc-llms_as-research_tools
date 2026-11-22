@@ -23,7 +23,7 @@ if cfg["dry_run"] or not cfg["api_key"]:
     sys.exit("make_cache.py needs a live setup: set API_KEY and DRY_RUN=0 in config.env.")
 llm.status()
 if llm.ollama_ready() != "ready":
-    print(f"WARNING: decision model not ready, so notebook 03 answers won't be cached. Run: ollama pull {cfg['decision_model']}")
+    print(f"WARNING: decision model not ready, so notebook 10 answers won't be cached. Run: ollama pull {cfg['decision_model']}")
 
 log = ROOT / "outputs" / "make_cache_calls.log"
 log.parent.mkdir(exist_ok=True)
