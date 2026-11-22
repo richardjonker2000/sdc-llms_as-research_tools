@@ -34,7 +34,27 @@ patents[["id", "year", "assignee", "title"]].head()
 %% md
 ## Step 1 · Write the codebook
 
-Each field is one variable. The `description` is the coding instruction. `Literal[...]` lists the only allowed values, just like a closed category in a codebook. The `evidence_quote` field asks the model to copy the words that justify its answer, so we can check them later.
+### The codebook on paper
+
+This is the codebook as you would write it for a human coder: one row per variable, with its type, the allowed values and the coding instruction.
+
+| Variable | Type | Allowed values | Coding instruction |
+| --- | --- | --- | --- |
+| `is_ai` | yes / no | `true`, `false` | True if the invention uses or improves artificial intelligence or machine learning |
+| `technology` | short text | 2 to 5 words | The core technology |
+| `problem_solved` | short text | one sentence | The problem the invention solves |
+| `application_domain` | one category | `health`, `finance`, `manufacturing`, `transport`, `energy`, `retail & consumer`, `ICT & telecom`, `other` | The main sector where the invention is used |
+| `automation_vs_augmentation` | one category | `automates human work`, `augments human work`, `neither` | *No written definition:* the model sees only the variable name and the three values. A gap in the codebook: what counts as "neither"? |
+| `evidence_quote` | verbatim text | 3 to 12 words, copied from the abstract | The phrase that best supports the `is_ai` answer. Never empty. |
+
+Two design choices matter most:
+
+- **Closed categories** (`is_ai`, `application_domain`, `automation_vs_augmentation`) can be counted and checked: an answer outside the list is rejected.
+- **A verbatim quote** (`evidence_quote`) makes every answer checkable against the text (Step 4).
+
+### The same codebook as code
+
+Each row of the table becomes one line. The `description` is the coding instruction. `Literal[...]` lists the only allowed values, just like a closed category.
 
 %% code
 Domain = Literal["health", "finance", "manufacturing", "transport", "energy",
@@ -47,6 +67,18 @@ class PatentCode(BaseModel):
     application_domain: Domain = Field(description="The main sector where the invention is used")
     automation_vs_augmentation: Literal["automates human work", "augments human work", "neither"]
     evidence_quote: str = Field(description="A phrase of 3 to 12 words copied word for word from the abstract that best supports your is_ai answer. Never empty.")
+
+%% md
+### What the model reads
+
+The model never sees the Python class. The helper turns it into a **JSON schema**: the same codebook in a machine-readable format, with every name, type, allowed value and instruction. This is what goes into the prompt.
+
+%% code
+import json
+print(json.dumps(PatentCode.model_json_schema(), indent=2))
+
+%% md
+Last, a short general instruction that comes before the codebook:
 
 %% code
 INSTRUCTIONS = """You are a research assistant coding patent abstracts for an innovation study.
