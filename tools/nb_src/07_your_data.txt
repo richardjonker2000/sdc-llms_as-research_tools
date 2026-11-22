@@ -66,7 +66,7 @@ print("saved outputs/my_data_coded.csv")
 %% md
 ## What did this cost?
 
-Every answer comes with a count of **tokens** (pieces of words; about 4 characters of English each): tokens **in** (your instructions plus the text) and tokens **out** (the answer, including the model's hidden "thinking"). Providers charge per million tokens. Saved answers keep the counts from the original live call, so this is what the run costs with a live key. Run it after Step 3 to estimate the cost of your whole dataset.
+Every answer comes with a count of **tokens** (pieces of words; about 4 characters of English each): tokens **in** (your instructions plus the text) and tokens **out** (the answer, including the model's hidden "thinking"). Providers charge per million tokens. Every cell that got answers printed its own cost line; here is the same arithmetic for the whole notebook. Saved answers keep the counts from the original live call, so this is what the run costs with a live key. Run it after Step 3 to estimate the cost of your whole dataset.
 
 %% code
 PRICE_IN, PRICE_OUT = 0.15, 0.60   # US$ per million tokens: MiniMax M3.1 Flash list price, Nov 2026 (check the provider's page)

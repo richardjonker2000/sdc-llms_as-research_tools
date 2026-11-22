@@ -26,7 +26,7 @@ from tqdm import tqdm
 
 ROOT = Path(__file__).resolve().parent.parent
 CACHE_DIR = ROOT / "outputs_cached"
-KEYS = ["PROVIDER", "API_KEY", "MODEL", "BASE_URL", "RPM", "DRY_RUN", "OLLAMA_URL", "DECISION_MODEL", "REASONING", "OPENALEX_API_KEY", "WORKERS"]
+KEYS = ["PROVIDER", "API_KEY", "MODEL", "BASE_URL", "RPM", "DRY_RUN", "OLLAMA_URL", "DECISION_MODEL", "REASONING", "OPENALEX_API_KEY", "WORKERS", "PRICE_IN", "PRICE_OUT"]
 PROVIDERS = {  # name: (base_url, default model)
     "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai/", "gemini-3.5-flash-lite"),  # Nov 2026: -latest alias hung; full Flash free tier = 20 requests/day
     "minimax_intl": ("https://api.minimax.io/v1", "MiniMax-M3"),
@@ -35,6 +35,9 @@ PROVIDERS = {  # name: (base_url, default model)
     "qwen": ("https://dashscope.aliyuncs.com/compatible-mode/v1", ""),
     "modelscope": ("https://api-inference.modelscope.cn/v1", ""),
     "ollama": ("{OLLAMA_URL}/v1", "gemma4:e2b"),
+}
+PRICES = {  # US$ per million tokens (in, out); list prices, Nov 2026. Override with PRICE_IN / PRICE_OUT in config.env
+    "MiniMax-M3.1-Flash": (0.15, 0.60),
 }
 CFG: dict[str, Any] = {}
 
@@ -66,6 +69,9 @@ def load_config(env_file: Path | None = None) -> dict[str, Any]:
         openalex_key=v["OPENALEX_API_KEY"],
         workers=int(v["WORKERS"] or 4),
     )
+    price = PRICES.get(CFG["model"], (None, None))
+    CFG["price_in"] = float(v["PRICE_IN"]) if v["PRICE_IN"] else price[0]
+    CFG["price_out"] = float(v["PRICE_OUT"]) if v["PRICE_OUT"] else price[1]
     return CFG
 
 
@@ -185,6 +191,7 @@ USAGE: list[dict] = []   # one row per answer this session (live or from the cac
 
 
 def _record_usage(source: str, usage: dict) -> None:
+    _watch_cost()
     USAGE.append({"source": source, "tokens_in": usage.get("prompt_tokens", 0),
                   "tokens_out": usage.get("completion_tokens", 0),
                   "thinking": (usage.get("completion_tokens_details") or {}).get("reasoning_tokens", 0)})
@@ -199,6 +206,46 @@ def usage_table() -> pd.DataFrame:
 
 def reset_usage() -> None:
     USAGE.clear()
+    _cost_mark[0] = 0
+
+
+def cost(rows: list[dict]) -> float | None:
+    """US$ for these answers at the configured price (None if the price is unknown)."""
+    if CFG.get("price_in") is None or CFG.get("price_out") is None:
+        return None
+    return (sum(r["tokens_in"] for r in rows) * CFG["price_in"] + sum(r["tokens_out"] for r in rows) * CFG["price_out"]) / 1e6
+
+
+_cost_mark = [0]          # USAGE length when the current notebook cell started
+_cost_watching = [False]
+
+
+def _watch_cost() -> None:
+    """In Jupyter: after every cell that got LLM answers, print what they cost and the running total."""
+    if _cost_watching[0]:
+        return
+    try:
+        ip = get_ipython()  # type: ignore[name-defined]  # noqa: F821
+    except NameError:
+        return
+    _cost_watching[0] = True
+
+    def before(*_):
+        _cost_mark[0] = len(USAGE)
+
+    def after(*_):
+        rows = USAGE[_cost_mark[0]:]
+        if not rows:
+            return
+        tin, tout = sum(r["tokens_in"] for r in rows), sum(r["tokens_out"] for r in rows)
+        here, total = cost(rows), cost(USAGE)
+        money = f" = ${here:.4f}   (notebook so far: ${total:.4f})" if here is not None else " (no price known for this model)"
+        saved = "   [saved answers: free today, this is the live price]" if all(r["source"] == "cache" for r in rows) else ""
+        print(f"Cost of this cell: {len(rows)} answer{'s' * (len(rows) != 1)}, {tin:,} tokens in, {tout:,} out{money}{saved}")
+        _cost_mark[0] = len(USAGE)
+
+    ip.events.register("pre_run_cell", before)
+    ip.events.register("post_run_cell", after)
 
 
 def _log(source: str, key: str) -> None:
@@ -518,6 +565,8 @@ def status() -> None:
     print(f"Mode     : {mode().upper()}: {explain}")
     print(f"Decision : {c['decision_model']} @ {c['ollama_url']}: {dm}")
     print(f"Cache    : {len(list(CACHE_DIR.glob('*.json')))} saved answers in outputs_cached/")
+    if c["price_in"] is not None:
+        print(f"Price    : ${c['price_in']:.2f} per million tokens in, ${c['price_out']:.2f} out: every cell prints what its answers cost")
 
 
 load_config()
