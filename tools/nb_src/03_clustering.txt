@@ -115,7 +115,43 @@ for j in similar:
     print(f"  {X[0] @ X[j]:.2f}  {papers.title[j]}")
 
 %% md
-## Step 3 · Group the papers: k-means
+## Step 3 · From vectors to a map
+
+Each paper is now a point in a space with about 2,400 dimensions, one per word. Papers that use similar words are **close** in that space (high cosine similarity, as above). Clustering means finding **groups of points that lie close together**.
+
+We cannot draw 2,400 dimensions, but we can squeeze them into 2 for a picture. **PCA** (principal component analysis) finds the two directions along which the papers differ most, and places every paper on them.
+
+%% code
+centre = X.mean(axis=0)
+U, S, Vt = np.linalg.svd(X - centre, full_matrices=False)   # PCA via the singular value decomposition
+xy = U[:, :2] * S[:2]                                        # every paper's position on the 2 main directions
+shown = (S[:2] ** 2).sum() / (S ** 2).sum()
+print(f"The 2 directions keep {shown:.0%} of the differences between papers: a rough sketch, not the full picture.")
+for d in range(2):
+    words = [vocab[w] for w in Vt[d].argsort()[::-1][:6]]
+    other_end = [vocab[w] for w in Vt[d].argsort()[:6]]
+    print(f"direction {d + 1}: {', '.join(words)}   <->   {', '.join(other_end)}")
+
+%% md
+Now colour the points by a few simple keywords. **No algorithm yet**: just a search for a word in the title or abstract.
+
+%% code
+text = (papers.title + " " + papers.abstract).str.lower()
+topics = {"wage": COLORS[0], "robot": COLORS[1], "artificial intelligence": COLORS[2]}
+fig, ax = plt.subplots(figsize=(7, 5.5))
+ax.scatter(xy[:, 0], xy[:, 1], s=8, color="#d4d1ca", label="other papers")
+for word, colour in topics.items():
+    has = text.str.contains(word).to_numpy()
+    ax.scatter(xy[has, 0], xy[has, 1], s=10, color=colour, label=f'mentions "{word}" ({has.sum()})')
+ax.set_title("814 papers, placed by their words"); ax.set_xticks([]); ax.set_yticks([])
+ax.set_xlabel("direction 1"); ax.set_ylabel("direction 2"); ax.legend(loc="best", fontsize=9)
+plt.show()
+
+%% md
+Papers about robots, wages or AI sit in their own regions of the map: **the structure is already in the vectors.** Clustering does not create it; it draws the borders. Where the colours overlap, the borders will be fuzzy (Step 8 comes back to this).
+
+%% md
+## Step 4 · Group the papers: k-means
 
 k-means is a simple loop:
 
@@ -153,7 +189,23 @@ papers["group"] = group + 1
 papers.group.value_counts().sort_index()
 
 %% md
-## Step 4 · What is in each group?
+The same map as in Step 3, now coloured by the group k-means chose. The crosses are the group **centres**: the average paper of each group.
+
+%% code
+centres_xy = np.array([xy[group == j].mean(axis=0) for j in range(K)])   # each group's average position on the map
+fig, ax = plt.subplots(figsize=(7, 5.5))
+for j in range(K):
+    ax.scatter(xy[group == j, 0], xy[group == j, 1], s=8, color=COLORS[j], label=f"group {j + 1}")
+ax.scatter(centres_xy[:, 0], centres_xy[:, 1], s=160, marker="X", color="black", edgecolor="white", label="centres")
+ax.set_title(f"k-means with k = {K}"); ax.set_xticks([]); ax.set_yticks([])
+ax.set_xlabel("direction 1"); ax.set_ylabel("direction 2"); ax.legend(loc="best", fontsize=9)
+plt.show()
+
+%% md
+Groups that overlap on this 2-D map can still be well apart in the full 2,400 dimensions: the map is a sketch. Step 5 reads what each group is about.
+
+%% md
+## Step 5 · What is in each group?
 
 Two ways to describe a group: its **top words** (the highest weights in its centre), and its **most typical papers** (the ones closest to the centre). Read the titles: do the words describe them?
 
@@ -168,7 +220,7 @@ for j in range(K):
     print()
 
 %% md
-## Step 5 · How do the groups develop over time?
+## Step 6 · How do the groups develop over time?
 
 %% code
 periods = pd.cut(papers.year, [0, 1999, 2009, 2016, 2020, 2026],
@@ -181,7 +233,7 @@ plt.show()
 pd.crosstab(periods, papers.group, margins=True, margins_name="all")
 
 %% md
-## Step 6 · How many groups? There is no right *k*
+## Step 7 · How many groups? There is no right *k*
 
 More groups always fit better, so fit alone cannot pick *k*. Look for the point where adding groups stops helping much, and then read the groups: are they **useful** for your question?
 
@@ -195,7 +247,7 @@ ax.set_title("More groups always fit better")
 plt.show()
 
 %% md
-## Step 7 · Run it again: does it find the same groups?
+## Step 8 · Run it again: does it find the same groups?
 
 This is agreement again (notebook 02), but the groups have no names, so we cannot compare labels directly. Instead we compare **pairs of papers**: of the pairs that were in the same group in the first run, what share are still together in a second run with different random starts?
 
@@ -215,9 +267,9 @@ print(f"\nfor comparison, random groups of the same sizes: about {(sizes ** 2).s
 %% md
 Many papers move between groups from run to run: the core of each group is stable, the **boundaries are not**. That is normal for text, and it is why groups are a map for reading, not a result to report as it is.
 
-## Step 8 · Optional: let an LLM name the groups
+## Step 9 · Optional: let an LLM name the groups
 
-So far, no LLM. Here we add one call, like BERTopic's LLM step: we give it each group's top words and typical titles, and ask for a short, distinct name. **You stay the judge**: check every name against Step 4.
+So far, no LLM. Here we add one call, like BERTopic's LLM step: we give it each group's top words and typical titles, and ask for a short, distinct name. **You stay the judge**: check every name against Step 5.
 
 %% code
 profiles = []
@@ -252,7 +304,7 @@ for p in profiles:
 %% md
 ## What did this cost?
 
-Every answer comes with a count of **tokens** (pieces of words; about 4 characters of English each): tokens **in** (your instructions plus the text) and tokens **out** (the answer, including the model's hidden "thinking"). Providers charge per million tokens; input the provider has seen recently (the same instructions, sent again) is **cached** and billed at a tenth of the price. Every cell that got answers printed its own cost line; here is the same arithmetic for the whole notebook. Saved answers keep the counts from the original live call, so this is what the run costs with a live key. Steps 1–7 cost nothing: they run on your CPU.
+Every answer comes with a count of **tokens** (pieces of words; about 4 characters of English each): tokens **in** (your instructions plus the text) and tokens **out** (the answer, including the model's hidden "thinking"). Providers charge per million tokens; input the provider has seen recently (the same instructions, sent again) is **cached** and billed at a tenth of the price. Every cell that got answers printed its own cost line; here is the same arithmetic for the whole notebook. Saved answers keep the counts from the original live call, so this is what the run costs with a live key. Steps 1–8 cost nothing: they run on your CPU.
 
 %% code
 PRICE_IN, PRICE_CACHED, PRICE_OUT = CFG["price_in"], CFG["price_cached"], CFG["price_out"]   # per million tokens
@@ -261,12 +313,12 @@ u = usage_table()
 fresh_in = u.tokens_in.sum() - u.cached_in.sum()          # input the provider had not seen before
 cost = (fresh_in * PRICE_IN + u.cached_in.sum() * PRICE_CACHED + u.tokens_out.sum() * PRICE_OUT) / 1e6
 print(f"{len(u)} answers: {u.tokens_in.sum():,} tokens in, {u.tokens_out.sum():,} tokens out ({u.thinking.sum():,} of them thinking)")
-print(f"cost: {CUR}{cost:.4f}   (the clustering itself, Steps 1-7: {CUR}0)")
+print(f"cost: {CUR}{cost:.4f}   (the clustering itself, Steps 1-8: {CUR}0)")
 
 %% md
 ## Try it yourself
 
-- Change `K` in Step 3 to 4 or 10 and re-run Steps 3–7. Which groups split, and which merge?
+- Change `K` in Step 4 to 4 or 10 and re-run Steps 4–8. Which groups split, and which merge?
 - Add words to `STOP` (for example *employment*, *workers*) and re-run from Step 1. The groups change: the stop word list is a modelling choice.
 - Use another prepared sample: `green_innovation` or `china_innovation` in the first cell.
 
