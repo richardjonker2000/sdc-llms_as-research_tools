@@ -9,13 +9,13 @@ Start with `00_setup.ipynb`: it should say **Connection OK**.
 | Time | Part | Notebook | What it shows | Cost with a live key* |
 | --- | --- | --- | --- | --- |
 | 11:30 | Intro | – | Classify vs discover | – |
-| 11:35 | A · LLM coding | `01_codebook_extraction` | A codebook turns 30 patent abstracts into a validated table: the full prompt, validation and retry, the quote check, a figure | $0.007 (32 answers) |
-| 11:53 | A · LLM coding | `02_agreement` | Do coders agree? One model twice, and two models: percent agreement, Cohen's kappa by hand, weighted kappa, Fleiss' kappa, the disagreements | $0.008 (80 answers) |
-| 12:08 | B · Unsupervised | `03_clustering` | 814 abstracts grouped on the laptop CPU in under a second: TF-IDF and k-means written out, groups over time, how many groups, stability; one optional LLM call names the groups | $0.0003 (1 answer) |
-| 12:18 | B · Unsupervised | `04_literature_review` | From one research question to a map of the field: search, citation network, streams named by an LLM, chat with the literature | $0.003 (12 answers) |
+| 11:35 | A · LLM coding | `01_codebook_extraction` | A codebook turns 30 patent abstracts into a validated table: the full prompt, validation and retry, the quote check, a figure | ¥0.04 (32 answers) |
+| 11:53 | A · LLM coding | `02_agreement` | Do coders agree? One model twice, and two models: percent agreement, Cohen's kappa by hand, weighted kappa, Fleiss' kappa, the disagreements | ¥0.03 (80 answers) |
+| 12:08 | B · Unsupervised | `03_clustering` | 814 abstracts grouped on the laptop CPU in under a second: TF-IDF and k-means written out, groups over time, how many groups, stability; one optional LLM call names the groups | ¥0.002 (1 answer) |
+| 12:18 | B · Unsupervised | `04_literature_review` | From one research question to a map of the field: search, citation network, streams named by an LLM, chat with the literature | ¥0.02 (12 answers) |
 | 12:28 | Wrap-up | – | – | – |
 
-\* MiniMax M3.1 Flash at its list price (US$0.15 per million tokens in, $0.60 out, Nov 2026). Each notebook prints its own cost; at these rates **10,000 texts cost roughly $1–3**. In the session everything replays from the saved answers, so it costs nothing.
+\* MiniMax M3.1 Flash at the official China price (¥1.00 per million tokens in, ¥0.10 if cached, ¥4.00 out; platform.minimax.cn, Nov 2026). The API reports the tokens; the notebooks multiply by the price. Every cell that gets answers prints its cost; at these rates **10,000 texts cost roughly ¥5–15** (about US$1–2). In the session everything replays from the saved answers, so it costs nothing.
 
 ## Take home
 

@@ -26,7 +26,7 @@ from tqdm import tqdm
 
 ROOT = Path(__file__).resolve().parent.parent
 CACHE_DIR = ROOT / "outputs_cached"
-KEYS = ["PROVIDER", "API_KEY", "MODEL", "BASE_URL", "RPM", "DRY_RUN", "OLLAMA_URL", "DECISION_MODEL", "REASONING", "OPENALEX_API_KEY", "WORKERS", "PRICE_IN", "PRICE_OUT"]
+KEYS = ["PROVIDER", "API_KEY", "MODEL", "BASE_URL", "RPM", "DRY_RUN", "OLLAMA_URL", "DECISION_MODEL", "REASONING", "OPENALEX_API_KEY", "WORKERS", "PRICE_IN", "PRICE_OUT", "CURRENCY"]
 PROVIDERS = {  # name: (base_url, default model)
     "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai/", "gemini-3.5-flash-lite"),  # Nov 2026: -latest alias hung; full Flash free tier = 20 requests/day
     "minimax_intl": ("https://api.minimax.io/v1", "MiniMax-M3"),
@@ -36,9 +36,10 @@ PROVIDERS = {  # name: (base_url, default model)
     "modelscope": ("https://api-inference.modelscope.cn/v1", ""),
     "ollama": ("{OLLAMA_URL}/v1", "gemma4:e2b"),
 }
-PRICES = {  # US$ per million tokens (in, out); list prices, Nov 2026. Override with PRICE_IN / PRICE_OUT in config.env
-    "MiniMax-M3.1-Flash": (0.15, 0.60),
-}
+PRICES = {  # per million tokens: (input, output, cached input, currency). Official price pages, checked 22 Nov 2026.
+    ("minimax_cn", "MiniMax-M3.1-Flash"): (1.00, 4.00, 0.10, "¥"),   # platform.minimax.cn/docs/guides/pricing
+    ("minimax_cn", "MiniMax-M3"): (2.10, 8.40, 0.42, "¥"),           # up to 512k input tokens
+}   # Other providers or models: set PRICE_IN / PRICE_OUT (and CURRENCY) in config.env
 CFG: dict[str, Any] = {}
 
 
@@ -69,9 +70,11 @@ def load_config(env_file: Path | None = None) -> dict[str, Any]:
         openalex_key=v["OPENALEX_API_KEY"],
         workers=int(v["WORKERS"] or 4),
     )
-    price = PRICES.get(CFG["model"], (None, None))
+    price = PRICES.get((provider, CFG["model"]), (None, None, None, "$"))
     CFG["price_in"] = float(v["PRICE_IN"]) if v["PRICE_IN"] else price[0]
     CFG["price_out"] = float(v["PRICE_OUT"]) if v["PRICE_OUT"] else price[1]
+    CFG["price_cached"] = price[2] if not v["PRICE_IN"] else CFG["price_in"]   # own price given: no cache discount
+    CFG["currency"] = v["CURRENCY"] or price[3]
     return CFG
 
 
@@ -193,6 +196,7 @@ USAGE: list[dict] = []   # one row per answer this session (live or from the cac
 def _record_usage(source: str, usage: dict) -> None:
     _watch_cost()
     USAGE.append({"source": source, "tokens_in": usage.get("prompt_tokens", 0),
+                  "cached_in": (usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0),
                   "tokens_out": usage.get("completion_tokens", 0),
                   "thinking": (usage.get("completion_tokens_details") or {}).get("reasoning_tokens", 0)})
 
@@ -201,7 +205,7 @@ def usage_table() -> pd.DataFrame:
     """Token counts of every answer since the kernel started (or since reset_usage()).
     Saved answers keep the counts from the original live call, so the cost is what the run would cost live.
     Fake answers (dry run) are not counted."""
-    return pd.DataFrame(USAGE, columns=["source", "tokens_in", "tokens_out", "thinking"])
+    return pd.DataFrame(USAGE, columns=["source", "tokens_in", "cached_in", "tokens_out", "thinking"])
 
 
 def reset_usage() -> None:
@@ -210,10 +214,14 @@ def reset_usage() -> None:
 
 
 def cost(rows: list[dict]) -> float | None:
-    """US$ for these answers at the configured price (None if the price is unknown)."""
+    """Price of these answers in CFG['currency'] (None if the price is unknown).
+    Input tokens the provider had cached are billed at the cheaper cached price; thinking counts as output."""
     if CFG.get("price_in") is None or CFG.get("price_out") is None:
         return None
-    return (sum(r["tokens_in"] for r in rows) * CFG["price_in"] + sum(r["tokens_out"] for r in rows) * CFG["price_out"]) / 1e6
+    cached = sum(r["cached_in"] for r in rows)
+    fresh = sum(r["tokens_in"] for r in rows) - cached
+    out = sum(r["tokens_out"] for r in rows)
+    return (fresh * CFG["price_in"] + cached * CFG["price_cached"] + out * CFG["price_out"]) / 1e6
 
 
 _cost_mark = [0]          # USAGE length when the current notebook cell started
@@ -239,7 +247,8 @@ def _watch_cost() -> None:
             return
         tin, tout = sum(r["tokens_in"] for r in rows), sum(r["tokens_out"] for r in rows)
         here, total = cost(rows), cost(USAGE)
-        money = f" = ${here:.4f}   (notebook so far: ${total:.4f})" if here is not None else " (no price known for this model)"
+        cur = CFG["currency"]
+        money = f" = {cur}{here:.4f}   (notebook so far: {cur}{total:.4f})" if here is not None else " (no price known for this model)"
         saved = "   [saved answers: free today, this is the live price]" if all(r["source"] == "cache" for r in rows) else ""
         print(f"Cost of this cell: {len(rows)} answer{'s' * (len(rows) != 1)}, {tin:,} tokens in, {tout:,} out{money}{saved}")
         _cost_mark[0] = len(USAGE)
@@ -566,7 +575,8 @@ def status() -> None:
     print(f"Decision : {c['decision_model']} @ {c['ollama_url']}: {dm}")
     print(f"Cache    : {len(list(CACHE_DIR.glob('*.json')))} saved answers in outputs_cached/")
     if c["price_in"] is not None:
-        print(f"Price    : ${c['price_in']:.2f} per million tokens in, ${c['price_out']:.2f} out: every cell prints what its answers cost")
+        print(f"Price    : {c['currency']}{c['price_in']:.2f} per million tokens in ({c['currency']}{c['price_cached']:.2f} if cached), "
+              f"{c['currency']}{c['price_out']:.2f} out: every cell prints what its answers cost")
 
 
 load_config()
