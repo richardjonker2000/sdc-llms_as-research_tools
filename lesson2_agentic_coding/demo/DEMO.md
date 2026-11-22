@@ -8,7 +8,7 @@
 
 ```bash
 ./setup.sh                                   # builds ~/sdc_agent_demo (DRY_RUN=1, git, start_agent.sh)
-git clone agent_harness/demo_prepared.bundle ~/sdc_demo_prepared    # the prepared run, one git tag per turn
+git clone lesson2_agentic_coding/demo/demo_prepared.bundle ~/sdc_demo_prepared    # the prepared run, one git tag per turn
 cp -r ~/sdc_agent_demo/.venv ~/sdc_agent_demo/config.env ~/sdc_demo_prepared/   # only if you continue live from a tag
 ```
 
@@ -20,10 +20,10 @@ Start OpenCode once before the session so it has fetched its model list. Then ke
 | Min | Do | Prepared fallback (`git checkout <tag>`) | Say |
 | --- | --- | --- | --- |
 | 0–3 | Agent slide. Then show `AGENTS.md` (who decides what), `opencode.json` (no web, can't read `config.env`, can't touch `workshop/`, can't delete or rewrite git), `git log`. | – | "There's no sandbox. These rules are the control. An instruction is a request; a permission is enforced." |
-| 3–7 | `/plan` + the research question. Talk through its steps: it looks at the data with one script before proposing anything. | `t1-plan`: `PLAN.md` and `demo_transcript/t1-plan.txt` | "It is looking before it proposes." |
+| 3–7 | `/plan` + the research question. Talk through its steps: it looks at the data with one script before proposing anything. | `t1-plan`: `PLAN.md` and `transcripts/t1-plan.txt` | "It is looking before it proposes." |
 | 7–11 | Read out D1–D3 and take a show of hands. Then `/revise D1: b, ... D2: a ..., D3: a ...` | `t2-revise` | "Method questions. It recommends; it doesn't decide." |
 | 11–15 | `/next` → step S1 and its report. Open `outputs/analysis_dataset.csv`. | `t3-next` | "One step, one report, one commit. Please check: …" |
-| 15–18 | `/explain` (about 1 min): what S1 did to the data in plain words, what could have gone wrong. | `demo_transcript/t6-explain.txt` (no files change) | "If you can't follow the explanation, don't accept the step." |
+| 15–18 | `/explain` (about 1 min): what S1 did to the data in plain words, what could have gone wrong. | `transcripts/t6-explain.txt` (no files change) | "If you can't follow the explanation, don't accept the step." |
 | 18–23 | `/extra Make a LaTeX table …` (about 1.5 min live). **While it runs**, show the prepared diagram (`t4-diagram`, `outputs/extras/pipeline.svg`). | `t5-latex`, `outputs/extras/automation_by_ai.tex` | "The boring parts of a paper are the parts it's best at." |
 | 23–26 | **Spot the bug** in the prepared `t5-latex` table: `9 (81.8)\%`. The agent called it "checked". Then show the fix. Don't run the fix live: it took 5 min. | `t7-fix`: fixed table, and the script now checks formatting too | "It checked the numbers, not the formatting. Checking is still your job." |
 | 26–28 | `git log --oneline`: every step is a commit you can read or undo. S2 (coding the other 121) waits for *you* to set `DRY_RUN=0`: the agent can't decide to spend money. | – | Delegate environments, bugs, plots, formatting. Never delegate the sample, definitions, codebook or claims. |
@@ -41,5 +41,5 @@ Times per turn in the prepared run (MiniMax M3.1 Flash, Nov 18): plan 2.0 min, r
 ## If something goes wrong
 
 - **No output after about 60 s:** Ctrl-C, start again, or switch to the prepared tag.
-- **No network or the key fails:** prepared tags plus `demo_transcript/` cover every step.
+- **No network or the key fails:** prepared tags plus `transcripts/` cover every step.
 - **It gets blocked and stops:** that's the rule working. Say so, then `/next` or the prepared tag.

@@ -17,7 +17,7 @@ Demo first: participants watch, and follow along on their laptops only if they l
 | 09:45 | Welcome, the three blocks | intro slide | 3 min |
 | 09:48 | Coding with a codebook | 01 | 20 min. Codebook, the prompt template (shown in full), raw vs validated, fake quotes, the figure. |
 | 10:08 | Mapping a field | 08 | 7 min, cached only: one question, the streams, the map, one `ask_literature` answer with citations. Skip `suggest_questions` if short of time. |
-| 10:15 | A coding agent | agent slide, then `agent_harness/DEMO.md` | 30 min, the second half of the hour. Uses notebook 01's codes as its data. |
+| 10:15 | A coding agent | agent slide, then `lesson2_agentic_coding/demo/DEMO.md` | 30 min, the second half of the hour. Uses notebook 01's codes as its data. |
 | 10:45 | End | – | Coffee at 11:00; Roman's session at 11:15. |
 
 Not in the session, for self-study: 00 (setup check), 02 (consistency), 03 (decision models, needs Ollama), 04, 05, 06, 07 and 09.

@@ -1,10 +1,17 @@
-# LLMs as research tools: Session 1 materials
+# From text to dataset: LLMs as research tools
 
-SDC workshop *New Tools, Old Questions* · Session 1 · Wed 25 Nov 2026 · Sino-Danish Center, UCAS Yanqihu Campus
+SDC workshop *New Tools, Old Questions* · Wed 25 Nov 2026 · Sino-Danish Center, UCAS Yanqihu Campus
 
-Hands-on notebooks showing what LLMs can do with research text: codebook-driven extraction, consistency checks, local decision models, long-document extraction, rewriting, and your own data. No coding experience needed. No coding at all? Use `prompts_chatbot_track.md` in any chatbot.
+Two hands-on lessons. No coding experience needed.
 
-**Organisers:** `PRESENTER_GUIDE.md` is the script for the session (every prompt, what to say), `REVIEW.md` the review guide for co-organisers, `facilitator_notes.md` the timing and likely questions.
+| | Lesson | Folder |
+| --- | --- | --- |
+| 11:30–12:30 | **1 · What LLMs can do with text:** coding with a codebook, checking it, mapping a field | `lesson1_text_to_data/` |
+| 14:00–15:00 | **2 · Agentic coding:** working with a coding agent, and skill files you can reuse | `lesson2_agentic_coding/` |
+
+No coding at all? Use `lesson1_text_to_data/prompts_chatbot_track.md` in any chatbot.
+
+**Organisers:** `docs/PRESENTER_GUIDE.md` is the script for the session (every prompt, what to say), `docs/REVIEW.md` the review guide for co-organisers, `docs/facilitator_notes.md` the timing and likely questions.
 
 ## 1 · Install (10 minutes, before the session)
 
@@ -45,13 +52,13 @@ Other providers: `minimax_intl`, `deepseek`, `qwen`, `modelscope` (free daily qu
 
 **Three modes.** *Live*: new prompts call the API. *Cached*: answers already in `outputs_cached/` replay instantly in every mode. *Dry run* (`DRY_RUN=1`): no network at all; anything not cached gets a **fake** answer with the right format, so every cell still runs.
 
-Then open `notebooks/00_setup.ipynb` and run it. You should see **Connection OK**.
+Then open `lesson1_text_to_data/00_setup.ipynb` and run it. You should see **Connection OK**.
 
 ## 4 · Troubleshooting
 
 | You see | Fix |
 | --- | --- |
-| `No module named 'workshop'` or `'openai'` | Start Jupyter from this folder with the environment activated (step 1), and open notebooks from `notebooks/`. |
+| `No module named 'workshop'` or `'openai'` | Start Jupyter from this folder with the environment activated (step 1), and open notebooks from `lesson1_text_to_data/`. |
 | `No API_KEY` | Create `config.env` (step 3), then **Kernel ▸ Restart Kernel**. Changes to `config.env` need a restart. |
 | `API key rejected (401)` | The key doesn't belong to the `PROVIDER` you set. Check both lines. |
 | `Can't reach ...` / `Access denied (403)` | No internet, or a blocked provider: Gemini does not work from mainland China, so use `minimax_cn`. Offline? Set `DRY_RUN=1`. |
@@ -64,7 +71,19 @@ Anything in the `error` column of a results table is a single row that failed, w
 
 ## 5 · What's here
 
-`notebooks/` the 8 notebooks (00–07) plus the bibliometrics add-on: 08 maps a field from a topic, 09 adds more lenses (OpenAlex data in `data/openalex/`; 08 and 09 also need `OPENALEX_API_KEY` in `config.env` to search your own topic) · `workshop/` helper code (`llm.py`) · `data/` all datasets, see `data/README.md` · `outputs/` your results · `outputs_cached/` saved answers · `prompts_chatbot_track.md` no-code version · `facilitator_notes.md` session plan · `make_cache.py` fills the cache (organiser) · `tools/` how the data and notebooks were built · `tests/` run with `pip install pytest && pytest`. · `agent_harness/` coding-agent session (OpenCode), see its README · `docs/DEPLOYMENT_CHINA.md` China deployment notes and local requirements.
+```
+lesson1_text_to_data/      Lesson 1 (11:30): what LLMs can do with text. Notebooks 00–09, no-code chatbot track
+lesson2_agentic_coding/    Lesson 2 (14:00): agentic coding and skill files
+  agent_harness/           a starter project for a coding agent (OpenCode): rules, permissions, commands
+  demo/                    the prepared agent run and its run sheet (organisers)
+workshop/                  shared helper code used by the notebooks (llm.py, biblio.py, style.py)
+data/                      all datasets, see data/README.md
+outputs/                   your results
+outputs_cached/            saved answers for offline replay (not in git)
+docs/                      organisers: presenter guide, facilitator notes, review guide, China deployment, slides
+setup.sh · make_cache.py   one-shot setup for a demo laptop · fills outputs_cached/ (organisers)
+tools/ · tests/            how the data and notebooks were built · pytest
+```
 
 `outputs_cached/` (saved answers and embeddings, ~66 MB) is not in git: build it with `make_cache.py` or get it from the organisers.
 

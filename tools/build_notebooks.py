@@ -1,4 +1,4 @@
-"""Build notebooks/*.ipynb from tools/nb_src/*.txt (cells separated by '%% md' / '%% code' lines).
+"""Build lesson1_text_to_data/*.ipynb from tools/nb_src/*.txt (cells separated by '%% md' / '%% code' lines).
 
 Organisers can edit the .ipynb files directly; this script is only a convenience for bulk edits.
 """
@@ -7,7 +7,7 @@ from pathlib import Path
 import nbformat
 
 SRC = Path(__file__).parent / "nb_src"
-OUT = Path(__file__).resolve().parent.parent / "notebooks"
+OUT = Path(__file__).resolve().parent.parent / "lesson1_text_to_data"
 
 for src in sorted(SRC.glob("*.txt")):
     nb = nbformat.v4.new_notebook()

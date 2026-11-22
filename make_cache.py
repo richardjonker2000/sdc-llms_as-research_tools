@@ -30,7 +30,7 @@ log.parent.mkdir(exist_ok=True)
 log.unlink(missing_ok=True)
 env = {**os.environ, "WORKSHOP_CALL_LOG": str(log), "DRY_RUN": "0"}
 failed = []
-for nb in sorted((ROOT / "notebooks").glob("0*.ipynb")):
+for nb in sorted((ROOT / "lesson1_text_to_data").glob("0*.ipynb")):
     print(f"\n=== {nb.name}", flush=True)
     r = subprocess.run([sys.executable, "-m", "jupyter", "nbconvert", "--to", "notebook", "--execute", str(nb),
                         "--output-dir", str(ROOT / "outputs" / "executed"), "--ExecutePreprocessor.timeout=3600",

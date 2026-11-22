@@ -1,12 +1,12 @@
 # Presenter guide: Session 1, 09:45–10:45
 
-Richard's script for the hour: what to open, what to type, what to say. Every prompt the session uses is copied here, so this page is all you need on stage. The minute-by-minute agent sheet with fallbacks is `agent_harness/DEMO.md`; timing and likely questions are in `facilitator_notes.md`.
+Richard's script for the hour: what to open, what to type, what to say. Every prompt the session uses is copied here, so this page is all you need on stage. The minute-by-minute agent sheet with fallbacks is `lesson2_agentic_coding/demo/DEMO.md`; timing and likely questions are in `docs/facilitator_notes.md`.
 
 | Time | Block | Open |
 | --- | --- | --- |
 | 09:45 | Welcome | slide 1 |
-| 09:48 | Coding with a codebook (20 min) | `notebooks/01_codebook_extraction.ipynb` |
-| 10:08 | Mapping a field (7 min) | `notebooks/08_bibliometrics.ipynb` |
+| 09:48 | Coding with a codebook (20 min) | `lesson1_text_to_data/01_codebook_extraction.ipynb` |
+| 10:08 | Mapping a field (7 min) | `lesson1_text_to_data/08_bibliometrics.ipynb` |
 | 10:15 | A coding agent (30 min) | slide 2, then the terminal |
 | 10:45 | End | – |
 
@@ -17,14 +17,14 @@ Richard's script for the hour: what to open, what to type, what to say. Every pr
 ```bash
 cd ~/sdc/sdc-llms_as-research_tools && git pull
 ./setup.sh --reset-demo --cache-from <MiniPC>:~/projects/sdc_work/outputs_cached
-git clone agent_harness/demo_prepared.bundle ~/sdc_demo_prepared
+git clone lesson2_agentic_coding/demo/demo_prepared.bundle ~/sdc_demo_prepared
 ```
 
 - [ ] `outputs_cached/` is filled. Without it, 01 and 08 call the API live or show fake answers.
 - [ ] `config.env` has the **workshop** key, not Roman's. `DRY_RUN=0` for the notebooks (they replay saved answers anyway). The agent folder stays on `DRY_RUN=1`.
 - [ ] Run 01 and 08 top to bottom once, so every cell is a cache hit and the figures render.
 - [ ] Start the agent once (`cd ~/sdc_agent_demo && ./start_agent.sh`), so OpenCode has fetched its model list.
-- [ ] The slides are open: https://claude.ai/artifact/2S1k4xWMohYDayDkTVAVwx (images in `docs/slides/`).
+- [ ] The slides are open: https://claude.ai/artifact/2S1k4xWMohYDayDkTVAVwx (images in `slides/`).
 
 **On the morning,** open: JupyterLab with 01 and 08; three terminal tabs (**live** `~/sdc_agent_demo`, **prepared** `~/sdc_demo_prepared`, and one spare); the slides.
 
@@ -34,7 +34,7 @@ git clone agent_harness/demo_prepared.bundle ~/sdc_demo_prepared
 
 ## 09:45 · Welcome (3 min)
 
-![Slide 1](docs/slides/intro.png)
+![Slide 1](slides/intro.png)
 
 **Say:**
 - One promise for the session: everything an LLM gives us today is something we can **check**. Not trust, check.
@@ -145,7 +145,7 @@ Skip `suggest_questions` (`SUGGEST_INSTR`) if short of time. Bridge: *"So far th
 
 ## 10:15 · A coding agent (30 min)
 
-![Slide 2](docs/slides/agent.png)
+![Slide 2](slides/agent.png)
 
 **Slide (1 min). Say:** *"There's no sandbox here. The control is three things: a rules file that says who decides what, a permission list (no web, it can't delete files, it can't read the API key, it can't rewrite history), and git, which records every step. Left: what it does without asking. Right: what it must ask. If it's unsure which side something is on, the rule says it is method, so it asks."*
 
@@ -210,5 +210,5 @@ Other extras that work: `/extra Make a diagram of the pipeline from the patents 
 | --- | --- |
 | No output for about 60 s | Ctrl-C, start again, or switch to the prepared tag for that step |
 | A permission dialog pops up | Click **deny**: that's the rule working, say so |
-| No network, or the key fails | Run from the prepared tags `t1-plan` … `t7-fix` and read from `agent_harness/demo_transcript/` |
+| No network, or the key fails | Run from the prepared tags `t1-plan` … `t7-fix` and read from `lesson2_agentic_coding/demo/transcripts/` |
 | It asks different decisions than D1–D3 | Good: answer those. The prepared tags still match the run sheet |

@@ -14,10 +14,10 @@
 #   2. .venv in this folder with requirements.txt (the notebooks)
 #   3. config.env from config.example.env; asks for the API key (input hidden, stored only in config.env)
 #   4. OpenCode 1.19.5 into ~/.local/bin (skipped if that version is already on PATH)
-#   5. a copy of agent_harness/ as its own git project with its own .venv, DRY_RUN=1, and start_agent.sh
+#   5. a copy of lesson2_agentic_coding/agent_harness/ as its own git project with its own .venv, DRY_RUN=1, and start_agent.sh
 #   6. Ollama >= 0.40 (Linux: into ~/.local/ollama, no sudo; macOS: Homebrew), starts it,
 #      pulls the decision model (DECISION_MODEL in config.env, default tev1:0.8b, 833 MB) and tests it
-#   7. outputs_cached/ (with --cache-from), then runs notebooks/00_setup headless: must say "Connection OK"
+#   7. outputs_cached/ (with --cache-from), then runs lesson1_text_to_data/00_setup headless: must say "Connection OK"
 set -euo pipefail
 
 OPENCODE_VERSION=1.19.5
@@ -143,7 +143,7 @@ if [ -e "$DEMO_DIR" ]; then
 fi
 if [ ! -e "$DEMO_DIR" ]; then
   mkdir -p "$DEMO_DIR"
-  (cd "$HERE/agent_harness" && tar -cf - --exclude .venv --exclude config.env --exclude __pycache__ .) | (cd "$DEMO_DIR" && tar -xf -)
+  (cd "$HERE/lesson2_agentic_coding/agent_harness" && tar -cf - --exclude .venv --exclude config.env --exclude __pycache__ .) | (cd "$DEMO_DIR" && tar -xf -)
   make_venv "$DEMO_DIR/.venv"
   pip_in "$DEMO_DIR/.venv" -r "$DEMO_DIR/requirements.txt"
   # the demo starts in dry run: fake LLM answers until the researcher goes live
@@ -238,7 +238,7 @@ NCACHE=$(find "$HERE/outputs_cached" -name '*.json' 2>/dev/null | wc -l | tr -d 
 if [ "$NCACHE" -gt 0 ]; then echo "outputs_cached/: $NCACHE saved answers"
 else warn "outputs_cached/ is empty: notebooks will call the API for every answer (about 200 calls). Get it with --cache-from <path>"; fi
 NB_OUT="$(mktemp -d)"
-if (cd "$HERE/notebooks" && ../.venv/bin/jupyter nbconvert --to notebook --execute 00_setup.ipynb --output-dir "$NB_OUT" \
+if (cd "$HERE/lesson1_text_to_data" && ../.venv/bin/jupyter nbconvert --to notebook --execute 00_setup.ipynb --output-dir "$NB_OUT" \
       --ExecutePreprocessor.timeout=300 >"$NB_OUT/log.txt" 2>&1); then
   # look only at what the cells printed (the source code contains the words too)
   NB_STATUS="$("$HERE/.venv/bin/python" - "$NB_OUT/00_setup.ipynb" <<'EOF'
@@ -260,9 +260,9 @@ say "Done"
 echo "Ollama:      $OLLAMA_STATUS"
 echo "Notebook 00: $NB_STATUS"
 cat <<EOF
-Notebooks:   cd "$HERE" && source .venv/bin/activate && jupyter lab     (open notebooks/00_setup.ipynb first)
+Notebooks:   cd "$HERE" && source .venv/bin/activate && jupyter lab     (open lesson1_text_to_data/00_setup.ipynb first)
 Agent demo:  cd "$DEMO_DIR" && ./start_agent.sh
-             then type:  /plan  (the research question is in agent_harness/DEMO.md)
+             then type:  /plan  (the research question is in lesson2_agentic_coding/demo/DEMO.md)
              go live for LLM coding: set DRY_RUN=0 in $DEMO_DIR/config.env
 Fresh demo:  ./setup.sh --reset-demo
 EOF

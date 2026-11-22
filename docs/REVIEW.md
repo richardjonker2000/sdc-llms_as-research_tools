@@ -9,22 +9,22 @@ Demo first, as you suggested: students watch, and follow along on their laptops 
 | Time | Block | Material |
 | --- | --- | --- |
 | 09:45 | Welcome, the three blocks | intro slide (ask me for the link) |
-| 09:48 | Coding with a codebook: patent abstracts become a validated table, quote by quote | `notebooks/01_codebook_extraction.ipynb` |
-| 10:08 | Mapping a field: one research question becomes a map of the literature | `notebooks/08_bibliometrics.ipynb` |
-| 10:15 | A coding agent: it writes the code, the researcher makes every method decision. Includes your "tricks" idea: a LaTeX table and a diagram made by the agent | `agent_harness/DEMO.md` |
+| 09:48 | Coding with a codebook: patent abstracts become a validated table, quote by quote | `lesson1_text_to_data/01_codebook_extraction.ipynb` |
+| 10:08 | Mapping a field: one research question becomes a map of the literature | `lesson1_text_to_data/08_bibliometrics.ipynb` |
+| 10:15 | A coding agent: it writes the code, the researcher makes every method decision. Includes your "tricks" idea: a LaTeX table and a diagram made by the agent | `lesson2_agentic_coding/demo/DEMO.md` |
 | 10:45 | End | – |
 
-Notebook 03 (decision models, `tev1`) is dropped from the session and is now self-study, as are 00, 02, 04–07 and 09. The full timing and talking points are in `facilitator_notes.md`.
+Notebook 03 (decision models, `tev1`) is dropped from the session and is now self-study, as are 00, 02, 04–07 and 09. The full timing and talking points are in `docs/facilitator_notes.md`.
 
 ## Option A: a 15-minute read (no setup)
 
 Read these on GitHub, in this order:
 
-1. `facilitator_notes.md`: the timing plan and the "wow moments" for 01.
-2. `notebooks/01_codebook_extraction.ipynb`: the codebook, the full prompt (`INSTRUCTIONS`, `TEMPLATE`, `RETRY` are all visible now), the quote check, the figure.
-3. `agent_harness/DEMO.md`: the 30-minute agent run sheet, minute by minute.
-4. `agent_harness/demo_transcript/`: what the agent actually did in the prepared run, one file per turn (`t1-plan.txt` … `t7-fix.txt`). These are readable without installing anything.
-5. `agent_harness/AGENTS.md` and `agent_harness/opencode.json`: the agent's rules and permissions.
+1. `docs/facilitator_notes.md`: the timing plan and the "wow moments" for 01.
+2. `lesson1_text_to_data/01_codebook_extraction.ipynb`: the codebook, the full prompt (`INSTRUCTIONS`, `TEMPLATE`, `RETRY` are all visible now), the quote check, the figure.
+3. `lesson2_agentic_coding/demo/DEMO.md`: the 30-minute agent run sheet, minute by minute.
+4. `lesson2_agentic_coding/demo/transcripts/`: what the agent actually did in the prepared run, one file per turn (`t1-plan.txt` … `t7-fix.txt`). These are readable without installing anything.
+5. `lesson2_agentic_coding/agent_harness/AGENTS.md` and `lesson2_agentic_coding/agent_harness/opencode.json`: the agent's rules and permissions.
 
 ## Option B: run it (macOS or Linux, about 15 minutes)
 
@@ -44,14 +44,14 @@ cd sdc-llms_as-research_tools
 **The prepared agent run** (no key needed): every agent turn is a git tag you can step through.
 
 ```bash
-git clone agent_harness/demo_prepared.bundle ~/sdc_demo_prepared
+git clone lesson2_agentic_coding/demo/demo_prepared.bundle ~/sdc_demo_prepared
 cd ~/sdc_demo_prepared && git log --oneline --decorate
 git checkout t1-plan     # then t2-revise, t3-next, t4-diagram, t5-latex, t6-explain, t7-fix
 ```
 
 Look at `PLAN.md` after `t1-plan` and `t2-revise`, at `outputs/extras/pipeline.svg` after `t4-diagram`, and at `outputs/extras/automation_by_ai.tex` after `t5-latex` and `t7-fix`.
 
-**The live agent** (needs a key): `cd ~/sdc_agent_demo && ./start_agent.sh`, then follow the "/plan …" line in `agent_harness/DEMO.md`. Each turn takes 1.5–2 minutes.
+**The live agent** (needs a key): `cd ~/sdc_agent_demo && ./start_agent.sh`, then follow the "/plan …" line in `lesson2_agentic_coding/demo/DEMO.md`. Each turn takes 1.5–2 minutes.
 
 ## What I'd most like feedback on
 

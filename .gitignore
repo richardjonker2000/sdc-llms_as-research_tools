@@ -11,7 +11,7 @@ openalex
 *_key
 *.env
 !config.example.env
-agent_harness/analysis/
-agent_harness/outputs/
-agent_harness/PLAN.md
-agent_harness/CLAIMS.md
+lesson2_agentic_coding/agent_harness/analysis/
+lesson2_agentic_coding/agent_harness/outputs/
+lesson2_agentic_coding/agent_harness/PLAN.md
+lesson2_agentic_coding/agent_harness/CLAIMS.md

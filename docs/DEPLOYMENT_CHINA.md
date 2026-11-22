@@ -12,7 +12,7 @@ Working notes for the organisers (status 11 Nov 2026). **Tested** means it ran o
 | `outputs_cached/` | offline replay, notebook 08 embeddings | ~66 MB (50 MB of it embeddings) | **Not in git.** Build with `make_cache.py` and hand out on USB or a shared drive. |
 | Ollama ≥ 0.40 + `tev1:0.8b` | notebook 03 only | 833 MB model | 0.35 is too old. Runs on CPU, about 3 decisions/s. |
 | A CJK font | Chinese labels in figures | – | Windows and macOS have one (Microsoft YaHei / PingFang SC). Linux: install Noto Sans CJK. |
-| Agent session only: OpenCode binary, git | `agent_harness/` | ~215 MB binary | See section 5. Windows needs *Git for Windows*. |
+| Agent session only: OpenCode binary, git | `lesson2_agentic_coding/agent_harness/` | ~215 MB binary | See section 5. Windows needs *Git for Windows*. |
 
 Disk: about 1.5 GB with Ollama and the model, about 0.6 GB without. RAM: 8 GB is enough.
 
@@ -54,9 +54,9 @@ Embeddings (notebook 08): `embo-01` on MiniMax, `gemini-embedding-001` on Gemini
   - New prompts get clearly fake answers, so every cell still runs.
   - Ollama (notebook 03) keeps working.
 - **Rate limits:** lower `RPM`. Re-running a cell only calls the API again for rows that failed.
-- More detail is in `facilitator_notes.md`.
+- More detail is in `docs/facilitator_notes.md`.
 
-## 5. Agent session (`agent_harness/`): extra requirements and open issues
+## 5. Agent session (`lesson2_agentic_coding/agent_harness/`): extra requirements and open issues
 
 What has been tested so far (build laptop, Linux):
 - **Setup:** OpenCode 1.19.5 with `minimax-cn-coding-plan/MiniMax-M3.1-Flash` (Anthropic-compatible endpoint `api.minimax.cn/anthropic/v1`, key in env var `MINIMAX_API_KEY`).

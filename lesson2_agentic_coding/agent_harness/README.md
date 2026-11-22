@@ -29,7 +29,7 @@ There is no sandbox. The control comes from OpenCode's own permissions and instr
 Easiest: from the repo root run `./setup.sh`. It builds `~/sdc_agent_demo` with all of the below; then `cd ~/sdc_agent_demo && ./start_agent.sh`. By hand:
 
 ```bash
-cd agent_harness
+cd lesson2_agentic_coding/agent_harness
 python -m venv .venv && .venv/bin/python -m pip install -r requirements.txt
 cp ../config.example.env config.env      # then set DRY_RUN=1 (fake answers) until the researcher goes live
 git init && git config user.name "Researcher (workshop)" && git config user.email researcher@workshop.local
@@ -38,8 +38,6 @@ export MINIMAX_API_KEY=...               # the workshop key, never a personal on
 opencode                                 # interactive; or: opencode run --command plan "..."
 ```
 
-**Workshop demo:** the 15-minute run sheet, the prepared run (`demo_prepared.bundle`, one git tag per turn) and its transcripts are in `DEMO.md`.
+**Workshop demo:** the run sheet, the prepared run (one git tag per turn) and its transcripts are in `../demo/`, outside this folder so the agent never sees them. `../demo/show_turn.py` turns an `opencode run --format json` log into a readable transcript.
 
-`tools_facilitator_show_turn.py` turns an `opencode run --format json` log into a readable transcript.
-
-China-specific setup and open issues: see `../docs/DEPLOYMENT_CHINA.md`, section 5.
+China-specific setup and open issues: see `../../docs/DEPLOYMENT_CHINA.md`, section 5.
