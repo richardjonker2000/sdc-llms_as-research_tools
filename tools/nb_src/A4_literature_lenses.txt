@@ -1,5 +1,5 @@
 %% md
-# 09 · Add-on: more lenses on your field
+# A4 · Add-on: more lenses on your field
 
 > **Old question:** Beyond the map of research streams: where are the gaps, what are the field's schools of thought, what is new, and who does the work?
 > **New tool:** AI embeddings, co-citation analysis, trend detection, and an LLM-drafted field memo with checked citations.

@@ -17,17 +17,8 @@ Start with `00_setup.ipynb`: it should say **Connection OK**.
 
 \* MiniMax M3.1 Flash at the official China price (¥1.00 per million tokens in, ¥0.10 if cached, ¥4.00 out; platform.minimax.cn, Nov 2026). The API reports the tokens; the notebooks multiply by the price. Every cell that gets answers prints its cost; at these rates **10,000 texts cost roughly ¥5–15** (about US$1–2). In the session everything replays from the saved answers, so it costs nothing.
 
-## Take home
+## After the workshop
 
-| Notebook | What it shows |
-| --- | --- |
-| `05_long_documents` | Long documents: extract per document, then aggregate, checked against the registry |
-| `06_rewriting` | Cleaning firm names, translating, anonymising |
-| `07_your_data` | The same pipeline on your own CSV, with a cost estimate for your dataset |
-| `08_patent_task_match` | Which work tasks could an AI patent perform? |
-| `09_literature_lenses` | More views on the field map from notebook 04 |
-| `10_decision_models` | A small local model that answers with probabilities (needs Ollama) |
+More notebooks we don't teach in the session are in `../additional_materials/`, starting with **A1 · your own data**.
 
 No internet? Set `DRY_RUN=1` in `../config.env` and restart the kernel: saved answers replay, anything new gets clearly marked fake answers.
-
-`prompts_chatbot_track.md` is the same lesson for any chatbot, without code.

@@ -9,7 +9,7 @@ Two hands-on lessons. No coding experience needed.
 | 11:30–12:30 | **1 · What LLMs can do with text:** coding with a codebook, checking it, mapping a field | `lesson1_text_to_data/` |
 | 14:00–15:00 | **2 · Agentic coding:** working with a coding agent, and skill files you can reuse | `lesson2_agentic_coding/` |
 
-No coding at all? Use `lesson1_text_to_data/prompts_chatbot_track.md` in any chatbot.
+More notebooks for after the workshop (starting with your own data) are in `additional_materials/`. No coding at all? Use `additional_materials/prompts_chatbot_track.md` in any chatbot.
 
 **Organisers:** `docs/PRESENTER_GUIDE.md` is the script for the session (every prompt, what to say), `docs/REVIEW.md` the review guide for co-organisers, `docs/facilitator_notes.md` the timing and likely questions.
 
@@ -72,7 +72,8 @@ Anything in the `error` column of a results table is a single row that failed, w
 ## 5 · What's here
 
 ```
-lesson1_text_to_data/      Lesson 1 (11:30): what LLMs can do with text. Notebooks 00–09, no-code chatbot track
+lesson1_text_to_data/      Lesson 1 (11:30): what LLMs can do with text. Notebooks 00–04
+additional_materials/      not taught in the sessions: A1 your own data, A2–A6 more notebooks, no-code chatbot track
 lesson2_agentic_coding/    Lesson 2 (14:00): agentic coding and skill files
   agent_harness/           a starter project for a coding agent (OpenCode): rules, permissions, commands
   demo/                    the prepared agent run and its run sheet (organisers)

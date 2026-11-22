@@ -220,7 +220,7 @@ for r in disagree.itertuples():
 pathlib.Path("../outputs").mkdir(exist_ok=True)
 runs = codes.rename(columns={"A": "label_t0", "B": "label_t07", "reason_A": "reason_t0", "reason_B": "reason_t07", "C": "label_claude"})
 runs.to_csv("../outputs/onet_exposure_runs.csv", index=False)
-print("saved outputs/onet_exposure_runs.csv (used in notebook 10)")
+print("saved outputs/onet_exposure_runs.csv (used in notebook A6)")
 
 %% md
 ## What did this cost?

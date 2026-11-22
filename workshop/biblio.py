@@ -546,7 +546,7 @@ def export_ris(df: pd.DataFrame, path: Path) -> Path:
 
 
 
-# ---------------------------------------------------------------- lenses for notebook 09
+# ---------------------------------------------------------------- lenses for notebook A4
 def lsa_vectors(texts: list[str], dims: int = 100) -> np.ndarray:
     """Word-based meaning vectors (LSA: TF-IDF + SVD). The fallback when AI embeddings are unavailable."""
     docs = [_words(t) for t in texts]

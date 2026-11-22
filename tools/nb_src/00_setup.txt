@@ -44,7 +44,7 @@ except Exception as e:
 %% md
 ## Step 2 · One decision-model call (local)
 
-A *decision model* is a tiny model (about 800 MB) that runs on your laptop through **Ollama**. It does not write text. You give it a piece of text (the *state*) and a question (the *instructions*) with fixed options (the *criteria*), and it returns a **probability for each option**. We use these models in notebook 10.
+A *decision model* is a tiny model (about 800 MB) that runs on your laptop through **Ollama**. It does not write text. You give it a piece of text (the *state*) and a question (the *instructions*) with fixed options (the *criteria*), and it returns a **probability for each option**. We use these models in notebook A6.
 
 %% code
 question = {"exposure": {"type": "choice",

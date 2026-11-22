@@ -1,5 +1,5 @@
 %% md
-# 10 · A tiny model on your laptop that answers with probabilities
+# A6 · A tiny model on your laptop that answers with probabilities
 
 > **Old question:** When can we trust automated coding, and when should a human look?
 > **New tool:** a *decision model* (`tev1:0.8b`, about 800 MB) running locally in Ollama. It writes no text. It returns a probability for each option.

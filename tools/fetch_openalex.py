@@ -3,7 +3,7 @@
 Run once while preparing (needs OPENALEX_API_KEY in config.env; costs well under $0.10 of the free $1/day):
     python tools/fetch_openalex.py
 
-Per topic (see workshop/biblio.py, harvest, shared with notebook 08): the seed paper and its references,
+Per topic (see workshop/biblio.py, harvest, shared with notebook 04): the seed paper and its references,
 the 400 most-cited works citing it, a topic search balanced by period (200 relevant articles cited 5+ times
 before 2010, in 2010-2017 and from 2018), and the 150 classics most often cited by all of these.
 """

@@ -23,14 +23,14 @@ if cfg["dry_run"] or not cfg["api_key"]:
     sys.exit("make_cache.py needs a live setup: set API_KEY and DRY_RUN=0 in config.env.")
 llm.status()
 if llm.ollama_ready() != "ready":
-    print(f"WARNING: decision model not ready, so notebook 10 answers won't be cached. Run: ollama pull {cfg['decision_model']}")
+    print(f"WARNING: decision model not ready, so notebook A6 answers won't be cached. Run: ollama pull {cfg['decision_model']}")
 
 log = ROOT / "outputs" / "make_cache_calls.log"
 log.parent.mkdir(exist_ok=True)
 log.unlink(missing_ok=True)
 env = {**os.environ, "WORKSHOP_CALL_LOG": str(log), "DRY_RUN": "0"}
 failed = []
-for nb in sorted((ROOT / "lesson1_text_to_data").glob("0*.ipynb")):
+for nb in sorted((ROOT / "lesson1_text_to_data").glob("0*.ipynb")) + sorted((ROOT / "additional_materials").glob("A*.ipynb")):
     print(f"\n=== {nb.name}", flush=True)
     r = subprocess.run([sys.executable, "-m", "jupyter", "nbconvert", "--to", "notebook", "--execute", str(nb),
                         "--output-dir", str(ROOT / "outputs" / "executed"), "--ExecutePreprocessor.timeout=3600",

@@ -1,5 +1,5 @@
 %% md
-# 08 · Bonus: which work tasks could an AI patent perform?
+# A5 · Bonus: which work tasks could an AI patent perform?
 
 > **Old question:** Which occupations are exposed to new technologies? (Webb, 2020, linked patent text to O\*NET tasks.)
 > **New tool:** an LLM that reads a patent and picks, from a shortlist, the work tasks the invention could do.

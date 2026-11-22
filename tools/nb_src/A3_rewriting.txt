@@ -1,5 +1,5 @@
 %% md
-# 06 · Rewriting: clean, translate, anonymise
+# A3 · Rewriting: clean, translate, anonymise
 
 > **Old question:** How much research time goes into cleaning firm names, translating interviews and removing identifying details?
 > **New tool:** an LLM used as a careful rewriter, with a check after each step.

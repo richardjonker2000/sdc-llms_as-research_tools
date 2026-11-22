@@ -475,7 +475,7 @@ out = export_html(papers, H, pos, names, pathlib.Path("../outputs") / f"field_ma
 papers.assign(stream=papers.cluster.map(names)).drop(columns=["refs"]).to_csv(
     f"../outputs/field_{name}.csv", index=False, encoding="utf-8-sig")
 json.dump({"name": name, "project": MY_PROJECT, "research_question": plan.question, "query": plan.query},
-          open("../outputs/last_field.json", "w", encoding="utf-8"), ensure_ascii=False)   # notebook 09 starts here
+          open("../outputs/last_field.json", "w", encoding="utf-8"), ensure_ascii=False)   # notebook A4 starts here
 print("saved", out.name, "and", f"field_{name}.csv", "in outputs/")
 
 %% md

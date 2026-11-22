@@ -9,7 +9,7 @@ Working notes for the organisers (status 11 Nov 2026). **Tested** means it ran o
 | Python 3.10–3.12 | everything | ~30 MB installer | Windows: tick *Add python.exe to PATH*. 3.13+ untested. |
 | Packages from `requirements.txt` | notebooks | ~430 MB in `.venv` (mostly JupyterLab) | Use a PyPI mirror in China (section 3). |
 | `config.env` with the workshop key | live LLM calls | – | `PROVIDER=minimax_cn`. Without a key: `DRY_RUN=1`. |
-| `outputs_cached/` | offline replay, notebook 08 embeddings | ~66 MB (50 MB of it embeddings) | **Not in git.** Build with `make_cache.py` and hand out on USB or a shared drive. |
+| `outputs_cached/` | offline replay, notebook 04 embeddings | ~66 MB (50 MB of it embeddings) | **Not in git.** Build with `make_cache.py` and hand out on USB or a shared drive. |
 | Ollama ≥ 0.40 + `tev1:0.8b` | notebook 03 only | 833 MB model | 0.35 is too old. Runs on CPU, about 3 decisions/s. |
 | A CJK font | Chinese labels in figures | – | Windows and macOS have one (Microsoft YaHei / PingFang SC). Linux: install Noto Sans CJK. |
 | Agent session only: OpenCode binary, git | `lesson2_agentic_coding/agent_harness/` | ~215 MB binary | See section 5. Windows needs *Git for Windows*. |
@@ -30,7 +30,7 @@ Disk: about 1.5 GB with Ollama and the model, about 0.6 GB without. RAM: 8 GB is
 | `gemini` | `generativelanguage.googleapis.com` | **Blocked** in mainland China. Only for the Danish side. |
 | `ollama` | `http://localhost:11434` | Local, no network. |
 
-Embeddings (notebook 08): `embo-01` on MiniMax, `gemini-embedding-001` on Gemini. The embeddings for the prepared fields are in `outputs_cached/embeddings/`, so notebooks 08 and 09 need no embedding calls for those fields.
+Embeddings (notebook 04): `embo-01` on MiniMax, `gemini-embedding-001` on Gemini. The embeddings for the prepared fields are in `outputs_cached/embeddings/`, so notebooks 04 and 09 need no embedding calls for those fields.
 
 **Keys:**
 - The workshop uses its **own pay-as-you-go MiniMax key**.
@@ -45,7 +45,7 @@ Embeddings (notebook 08): `embo-01` on MiniMax, `gemini-embedding-001` on Gemini
 - **Ollama model:** `ollama pull` uses ollama.com's registry, which may be slow or fail. Copy the model folder from a prepared machine instead: `~/.ollama/models`, or the folder set by `OLLAMA_MODELS`.
 - **GitHub:** may be slow; `git clone` can fail on campus. Hand out a zip of this repo plus `outputs_cached/` on USB.
 - **Hugging Face:** blocked. This only matters for `tools/fetch_patents.py`, which the organiser runs, never participants. A mirror is `HF_ENDPOINT=https://hf-mirror.com`.
-- **OpenAlex (`api.openalex.org`):** untested in China. Without it, notebook 08 still works with the prepared samples in `data/openalex/` (`ai_labour`, `green_innovation`, `china_innovation`). Searching your own topic needs `OPENALEX_API_KEY` and access.
+- **OpenAlex (`api.openalex.org`):** untested in China. Without it, notebook 04 still works with the prepared samples in `data/openalex/` (`ai_labour`, `green_innovation`, `china_innovation`). Searching your own topic needs `OPENALEX_API_KEY` and access.
 
 ## 4. Fallbacks on the day
 
@@ -82,4 +82,4 @@ Open items before using it with students:
 
 - All data is public (USPTO/PatentsView, O\*NET, ClinicalTrials.gov, OpenAlex) or synthetic. See `data/README.md` for licences.
 - Keep examples on innovation, firms and patents.
-- Still to review: the topic sensitivity of the notebook 08 examples (`robots_china`) for the Beijing audience.
+- Still to review: the topic sensitivity of the notebook 04 examples (`robots_china`) for the Beijing audience.

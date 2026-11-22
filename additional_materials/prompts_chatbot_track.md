@@ -4,7 +4,7 @@ For participants without Python. Use any chatbot in your browser: **Doubao (璞嗗
 
 ---
 
-## Demo 1 路 Codebook extraction (matches notebook 01)
+## Demo 1 路 Codebook extraction (matches lesson 1, notebook 01)
 
 Copy the whole box, including the five abstracts. They are real US patents (public domain).
 
@@ -36,7 +36,7 @@ ABSTRACTS
 
 ---
 
-## Demo 2 路 Consistency (matches notebook 02)
+## Demo 2 路 Consistency (matches lesson 1, notebook 02)
 
 Paste this prompt, then click **regenerate** (or paste it again in a new chat) two or three times. Do the labels change?
 
@@ -59,7 +59,7 @@ The tasks come from O\*NET 31.0 (USDOL/ETA, CC BY 4.0). Tasks whose label change
 
 ---
 
-## Demo 3 路 Long text: extract, then aggregate (matches notebook 04)
+## Demo 3 路 Long text: extract, then aggregate (matches additional notebook A2)
 
 Open any trial on clinicaltrials.gov, copy its **Eligibility Criteria** section, and paste it after this prompt:
 
@@ -78,7 +78,7 @@ Then compare your result with the age shown at the top of the trial page. Collec
 
 ---
 
-## Demo 4 路 Rewriting (matches notebook 05)
+## Demo 4 路 Rewriting (matches additional notebook A3)
 
 **(a) Clean firm names**
 

@@ -100,7 +100,7 @@ Return ONLY the corrected JSON object."""
 
 ---
 
-## 10:08 · Mapping a field: notebook 08 (7 min)
+## 10:08 · Mapping a field: notebook 04 (7 min)
 
 Use the pre-run example `RESEARCH_QUESTION = EXAMPLES["fdi_spillovers"]` (cached, works offline). Run everything beforehand; on stage scroll and talk. Show four things only:
 
