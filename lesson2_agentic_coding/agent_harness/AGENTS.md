@@ -27,10 +27,12 @@ When you ask, give the options, what each would mean for the results, and your r
 
 ## Work fast
 
-- You cannot read `workshop/` or `tools/` (blocked). What you need is here: `from workshop import extract_many, setup_plots, COLORS`. `extract_many(df, text_col, schema, instructions)` takes a pydantic model as the codebook and returns `df` with one column per field plus `_source` (live / cache / fake) and `error`. `setup_plots()` sets the house chart style.
+- You cannot read `workshop/` or `tools/` (blocked). What you need is here: `from workshop import extract_many, quote_check, usage_table, cost, CFG, setup_plots, COLORS`. `extract_many(df, text_col, schema, instructions)` takes a pydantic model as the codebook and returns one column per field plus `_source` (live / cache / fake) and `error`. `quote_check(quote, text)` is True if the quote is in the text. `cost(usage_table().to_dict("records"))` is the cost of all LLM answers so far, in `CFG["currency"]`. `setup_plots()` sets the house chart style.
+- **Skills.** For the standard methods, load the matching skill and follow it, including its required checks: `code-texts` (LLM coding with a codebook, lesson 1 notebook 01), `check-agreement` (agreement between coders, notebook 02), `cluster-texts` (grouping texts without labels, notebook 03), `setup-env` (environment problems).
+- `outputs_cached/` holds saved LLM answers so that known prompts replay. Never open, list or count it (blocked): whether rows were saved shows in the `_source` column after a test run.
 - Look at the data with ONE script (`analysis/s0_look.py`) and one run, not many separate commands.
 - Commands that work: `.venv/bin/python` (never `python` or `python3`), `ls`, `cat`, `head`, `grep`, `mkdir`, `git add`, `git commit`, `git log`, `git diff`. Everything else is blocked, so don't try it. Don't compile LaTeX (the researcher pastes the `.tex` into Overleaf) and don't make scratch folders.
-- The data: `data/patents.csv` (151 US patent grants: id, title, abstract, year, assignee, country, cpc_subclass) and `data/patent_codes.csv` (the LLM codes from notebook 01 for 30 of them: is_ai, technology, problem_solved, application_domain, automation_vs_augmentation, evidence_quote).
+- The data: `data/patents.csv` (151 US patent grants: id, title, abstract, year, assignee, country, cpc_subclass), `data/patent_codes.csv` (the LLM codes from notebook 01 for 100 of them, a random sample: `patents.sample(100, random_state=1)`; columns is_ai, technology, problem_solved, application_domain, automation_vs_augmentation, evidence_quote, _source), and `data/codebook.py` (notebook 01's codebook and instructions: import it with `sys.path.insert(0, "data")`, never edit it).
 
 ## Extras (`/extra`)
 

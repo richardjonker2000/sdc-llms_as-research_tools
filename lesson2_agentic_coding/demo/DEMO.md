@@ -1,45 +1,69 @@
-# Agent demo (10:15–10:45): run sheet
+# Lesson 2 (14:00–15:00): run sheet
 
-**The message:** the agent handles the code; you make every method decision, and you can check everything it did.
+**The message:** in lesson 1 you ran every step yourself. Here an agent runs them: it owns the code, you own the method. A **skill file** turns a notebook into instructions the agent must follow, checks included.
 
-**Research question** (no country comparison): *"I study how AI changes work. I want to know whether AI patents more often automate human work or augment it, and whether that has changed over time. I have the patent data from the workshop (data/patents.csv) and the LLM codes from notebook 01 (data/patent_codes.csv). I am not good at Python."*
+**Research question** (continues notebook 01, no country comparison): *"I study how AI changes work. I want to know whether AI patents more often automate human work or augment it, and whether that has changed over time. I have the patent data from the workshop (data/patents.csv), the LLM codes from notebook 01 for 100 of the patents (data/patent_codes.csv), and the codebook we used (data/codebook.py). I am not good at Python."*
 
 ## Before the session
 
 ```bash
-./setup.sh                                   # builds ~/sdc_agent_demo (DRY_RUN=1, git, start_agent.sh)
-git clone lesson2_agentic_coding/demo/demo_prepared.bundle ~/sdc_demo_prepared    # the prepared run, one git tag per turn
-cp -r ~/sdc_agent_demo/.venv ~/sdc_agent_demo/config.env ~/sdc_demo_prepared/   # only if you continue live from a tag
+./setup.sh --reset-demo --cache-from <MiniPC>:~/projects/sdc_work/outputs_cached   # fresh ~/sdc_agent_demo, saved answers linked in
+git clone lesson2_agentic_coding/demo/demo_prepared.bundle ~/sdc_demo_prepared      # the prepared run, one git tag per turn
 ```
 
-Open three terminal tabs: **live** (`cd ~/sdc_agent_demo && ./start_agent.sh`), **prepared** (`cd ~/sdc_demo_prepared`), and an editor or browser for the files.
-Start OpenCode once before the session so it has fetched its model list. Then keep the same OpenCode window open: starting a new process within a minute of the last one can hang at startup.
+- The saved answers must include the **51 patents the agent codes in S2** (cached on 22 Nov). Then the coding step replays real answers on stage and costs nothing.
+- Open four things: terminal **live** (`cd ~/sdc_agent_demo && ./start_agent.sh`), terminal **prepared** (`cd ~/sdc_demo_prepared`), an editor with notebook 01 (Step 1–4) and `.opencode/skills/code-texts/SKILL.md` side by side, and a browser for the output files.
+- Start OpenCode once before the session and keep that window open: a new process started within a minute of the last one can hang at startup.
 
-## The 30 minutes
+## The hour
 
 | Min | Do | Prepared fallback (`git checkout <tag>`) | Say |
 | --- | --- | --- | --- |
-| 0–3 | Agent slide. Then show `AGENTS.md` (who decides what), `opencode.json` (no web, can't read `config.env`, can't touch `workshop/`, can't delete or rewrite git), `git log`. | – | "There's no sandbox. These rules are the control. An instruction is a request; a permission is enforced." |
-| 3–7 | `/plan` + the research question. Talk through its steps: it looks at the data with one script before proposing anything. | `t1-plan`: `PLAN.md` and `transcripts/t1-plan.txt` | "It is looking before it proposes." |
-| 7–11 | Read out D1–D3 and take a show of hands. Then `/revise D1: b, ... D2: a ..., D3: a ...` | `t2-revise` | "Method questions. It recommends; it doesn't decide." |
-| 11–15 | `/next` → step S1 and its report. Open `outputs/analysis_dataset.csv`. | `t3-next` | "One step, one report, one commit. Please check: …" |
-| 15–18 | `/explain` (about 1 min): what S1 did to the data in plain words, what could have gone wrong. | `transcripts/t6-explain.txt` (no files change) | "If you can't follow the explanation, don't accept the step." |
-| 18–23 | `/extra Make a LaTeX table …` (about 1.5 min live). **While it runs**, show the prepared diagram (`t4-diagram`, `outputs/extras/pipeline.svg`). | `t5-latex`, `outputs/extras/automation_by_ai.tex` | "The boring parts of a paper are the parts it's best at." |
-| 23–26 | **Spot the bug** in the prepared `t5-latex` table: `9 (81.8)\%`. The agent called it "checked". Then show the fix. Don't run the fix live: it took 5 min. | `t7-fix`: fixed table, and the script now checks formatting too | "It checked the numbers, not the formatting. Checking is still your job." |
-| 26–28 | `git log --oneline`: every step is a commit you can read or undo. S2 (coding the other 121) waits for *you* to set `DRY_RUN=0`: the agent can't decide to spend money. | – | Delegate environments, bugs, plots, formatting. Never delegate the sample, definitions, codebook or claims. |
-| 28–30 | Questions. | – | – |
+| 0–5 | Slide: from notebook to agent. An agent is an LLM + tools (read files, run code) in a loop. | – | "Same methods as this morning. The difference is who presses the buttons." |
+| 5–10 | **The agent project.** `AGENTS.md` (who decides what), `opencode.json` (what is blocked). Type `show me config.env`: refused. `data/codebook.py`: the agent may use it, never change it. | – | "No sandbox. An instruction is a request; a permission is enforced." |
+| 10–15 | **Notebook → skill.** Notebook 01 next to `code-texts/SKILL.md`: the codebook, the test on 3 rows, the quote check and the cost become *required steps*. Mention `check-agreement` (02) and `cluster-texts` (03). | – | "A skill is your method written down so the agent cannot skip the checks." |
+| 15–19 | `/plan` + the research question (about 2 min live). | `t1-plan` | "It looks before it proposes." |
+| 19–23 | Read out D1–D3, show of hands. `/revise` with the answers below. | `t2-revise` | "Method questions. It recommends; it doesn't decide." |
+| 23–27 | `/next`: S1 builds the dataset (about 2 min). Open `outputs/s1_checks.txt`. It ends by asking **you** to switch live calls on. | `t3-next` | "One step, one report, one commit." |
+| 27–33 | Edit `config.env`: `DRY_RUN=0` (the researcher's switch). `/next`: the log shows **`[skill] code-texts`**. Read the report: 0 failed, 0 fake, quote check, value counts, **cost**. On stage the 51 answers replay from the cache, so nothing is spent. | `t4-code` | "Every check from notebook 01, without being asked. And the price." |
+| 33–38 | Set `DRY_RUN=1` again. `/extra` LaTeX table (about 3 min). **While it runs**, show the diagram (`t7-diagram`, `outputs/extras/process_diagram.svg`). | `t5-latex`, `t7-diagram` | "The boring parts of a paper are the parts it's best at." |
+| 38–42 | **A second skill** (prepared only: 7 min live). `t6-cluster`: themes of the 151 abstracts; `outputs/extras/themes_report.txt`. | `t6-cluster` | "It reports that the groups are not stable. That honesty is in the skill." |
+| 42–47 | **The catches** (below). | – | "Checking is still your job." |
+| 47–55 | **Write your own skill**: walk through `SKILL_TEMPLATE.md`, fill it in for one example from the room (a codebook coding task for someone's thesis). | – | "If you can write down your method, an agent can follow it." |
+| 55–60 | `git log --oneline`. **What goes in your methods section:** `PLAN.md` (decisions, who decided, when), the git log (every step), `CLAIMS.md` (every number → script), the skill file. | – | Delegate environments, bugs, plots, formatting. Never delegate the sample, definitions, codebook or claims. Then Roman at 15:15. |
 
-Times per turn in the prepared run (MiniMax M3.1 Flash, Nov 18): plan 2.0 min, revise 1.4, next 1.6, diagram 2.2, LaTeX 1.6, explain 1.0, fix 5.2.
+`/revise` used in the prepared run (adapt to the room's votes):
 
-## Moments to point at (they really happened)
+```
+/revise D1: a, AI patents only, and report 'neither' next to it. D2: a, two periods plus the year-by-year figure. D3: c, unknown: it is one download from PatentsView made for the workshop, so every number is a share within this sample. And yes: code the remaining 51 patents with the same codebook (data/codebook.py), so all 151 are comparable. Make that the first step after building the dataset; I will switch live calls on for it.
+```
 
-- **The check it skipped.** In the prepared LaTeX table, the percent sign is outside the bracket: `9 (81.8)\%` instead of `9 (81.8\%)`. The agent reported "checked" (it checked the numbers, not the formatting). Ask the room to spot it before you say it. Asked to fix it (`t7-fix`), it fixed the script, added formatting checks, and tested that the new checks fail on the old version.
-- **"Verbatim".** In one smoke-test run the agent wrote "30 verbatim quotes" in a diagram; only 29 of 30 are in the abstracts. The rule "never claim what no script checked" came from that.
-- **D4 after `/revise`: "paste notebook 01's prompt".** Notebook 01 isn't in its folder, so it asks for the codebook text. Notebook 01 now shows that text in full (`INSTRUCTIONS`, `TEMPLATE`, `RETRY`). Same codebook, comparable codes.
-- **The decisions are the right ones**: whether to code the other 121 patents, what "neither" means, what "over time" means with 3–6 coded patents per year. It also asks how the 30 were sampled (random, `random_state=1`).
+Extras used:
+
+```
+/extra Make a LaTeX table for my paper: of the 151 coded patents, how many were labelled automates / augments / neither, split by whether the LLM flagged them as AI. Counts and row percentages.
+/extra Group the 151 patent abstracts into themes by their words, with the cluster-texts skill. Use k = 5 and the standard stop words; no LLM naming. I want to see whether the AI patents fall into particular themes.
+/extra Make a diagram of what we did, for a slide: from the 151 patents, to notebook 01's 100 codes plus the 51 new ones with the same codebook, to the table and the themes. Put the real counts on the boxes.
+```
+
+Times per turn in the prepared run (MiniMax M3.1 Flash, 22 Nov): plan 1.9 min, revise 1.2, next 1.9, coding 4.6 (48 live calls; on stage they replay), LaTeX 2.9, themes 6.8, diagram 4.9.
+
+## The catches (they really happened)
+
+- **"Re-code 10 to check."** After `/revise` the agent proposes re-coding 10 of the old patents live, to test whether the two halves are comparable (D5). Sounds rigorous. But identical prompts replay the saved answer, so it would get 100% agreement for free. *Ask the room what is wrong with the check before you say it.*
+- **It went looking where it shouldn't.** In the first test run the agent opened the folder of saved answers to work out which patents were already coded, and ran out of steps. Now that folder is blocked in `opencode.json`. The rule in `AGENTS.md` alone would not have stopped it.
+- **"Checked" is not checked.** In an earlier run the LaTeX table had `9 (81.8)\%` instead of `9 (81.8\%)`, and the agent reported "checked": it checked the numbers, not the formatting.
+- **It notices limits, if the skill asks.** The themes are no more stable than random groups (22% vs 22% of pairs stay together), and it says so, with the patent boilerplate words ("one", "least", "plurality") as the likely cause.
+
+## Numbers to have in mind
+
+- Coded patents: 151 (100 from notebook 01, 51 by the agent). AI: 58. Among AI patents: 43 automate, 7 augment, 8 neither.
+- Quote check: 97 of 100 (notebook 01), 50 of 51 (agent).
+- Cost of coding 51 patents live: ¥0.07; about ¥15 per 10,000 texts.
 
 ## If something goes wrong
 
 - **No output after about 60 s:** Ctrl-C, start again, or switch to the prepared tag.
 - **No network or the key fails:** prepared tags plus `transcripts/` cover every step.
-- **It gets blocked and stops:** that's the rule working. Say so, then `/next` or the prepared tag.
+- **A permission dialog pops up:** click deny. That is the rule working; say so.
+- **It asks different decisions than D1–D3:** answer those. The prepared tags still follow the run above.

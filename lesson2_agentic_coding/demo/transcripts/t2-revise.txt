@@ -1,30 +1,23 @@
-t2-revise: /revise D1: b, code the other 121 with the same codebook. The 30 in notebook 01 were a random sample (patents.sample(30, random_state=1)). D2: a as the headline, b as a labelled secondary. By neither I mean the patent has no work content at all. D3: a, and b only if the cells allow it.
+t2-revise: /revise D1: a, AI patents only, and report 'neither' next to it. D2: a, two periods plus the year-by-year figure. D3: c, unknown: it is one download from PatentsView made for the workshop, so every number is a share within this sample. And yes: code the remaining 51 patents with the same codebook (data/codebook.py), so all 151 are comparable. Make that the first step after building the dataset; I will switch live calls on for it.
 
+  [read] PLAN.md
+  [write] PLAN.md
+  [bash] git add PLAN.md && git commit -m "plan: D1-D4 decided; add coding step for remaining 51 patents" && git log --oneline -3
 
-AGENT: Updating PLAN.md with your decisions.
-  [edit] PLAN.md
-  [edit] PLAN.md
+AGENT: **What changed in PLAN.md**
 
-AGENT: Now the Decisions section:
-  [edit] PLAN.md
-  [edit] PLAN.md
-  [edit] PLAN.md
-  [bash] git add PLAN.md && git commit -q -m "plan: record decided D1-D3 (code remaining 121, all-three headline, annual-first time design)" && git l
-
-AGENT: **What changed (3–5 lines):**
-- D1 decided: we code the remaining 121 patents with the same codebook; the 30 existing codes stay as they are. Your random-sample fact (`patents.sample(30, random_state=1)`) is now recorded and it changes how we read the 11 AI patents — they are an unbiased sample of the AI patents inside the 151, so their split is an estimate for the 151 (with 11-patent-sized uncertainty), not a convenience pick.
-- D2 decided: the headline reports all three shares (automates / augments / neither), and the secondary line is the automation share among work-affecting patents only. Your definition of "neither" (no work content at all — a product or new capability, not work) is written into the plan and will go into the LLM instructions so the new codes use the same meaning.
-- D3 decided: per-year counts and shares first, no statistical test; the pooled two-period comparison only if the extended sample gives usable year cells, otherwise we write "too few AI patents per year to say".
-- Steps updated: S2 now also needs the codebook text and your switch of `DRY_RUN=0` in `config.env`; the validation protocol moved to a new parked item D8.
+- **D1 decided (a):** the main answer is about AI patents only, and the "neither" count is always printed next to the automate/augment shares — so no reader can be misled by a denominator that silently drops cases.
+- **D2 decided (a):** two periods (2014–2018 vs 2019–2023) with a Fisher exact test, plus the year-by-year figure you asked for.
+- **D3 decided (c):** the frame is one PatentsView download of unknown rule, so I rewrote the limits section: every number is a share within these 151 grants and nothing generalises beyond them. This is now the stated caveat in the plan, not a footnote.
+- **New D4 decided (yes):** the remaining 51 patents get coded with the untouched codebook as step S2, right after the dataset is built. The script will stop if any row comes back as "fake", and I will report the LLM cost for that run.
+- Steps renumbered (S1–S7) and the deliverables renamed to match: `outputs/s2_coding_log.txt` now holds the coding run's checks.
 
 **Still open**
 
-**D4 (blocks S2) — the codebook text.** (a) You paste notebook 01's prompt/codebook so the 121 new codes match the 30 exactly — *recommended if it exists*. (b) I write a fresh one from the six field names plus your "neither = no work content" definition, and re-code all 151 including the 30, which turns the 30 into a test–retest check of the LLM's own consistency. (c) I write a fresh one and code only the 121 (cheapest, but the 30 were judged by a different standard, so old and new codes are not strictly comparable).
+D5. The 151 will mix notebook 01's cached answers with new live ones. Should I re-code 10 of the already-coded 100 live and report how many labels match (~10 extra calls)? I recommend yes — it is the cheapest evidence that the two halves of the sample are comparable. (b) skip it and trust the cache is also fine.
 
-**D7 (needed for S8, not for S1) — how the 151 patents were selected** (the search frame: keyword? CPC classes? one company's portfolio?). (a) You tell me the frame, and I state it in the memo as the boundary of every claim. (b) I describe it as "one workshop sample of 151 AI-candidate grants, 2014–2023" and flag that generalisation is limited. *Recommendation: (a), but (b) is workable if the frame is hard to reconstruct.*
+D6. Validating the codes against your own hand coding is parked for the reliability step (S6) and still waits for your answer; I will raise it again before S6.
 
-**D8 (for S3) — validation protocol.** (a) I check every `evidence_quote` for verbatim presence in the abstract, then you hand-check 10 patents — *recommended*. (b) Same check plus you hand-check 20 for a tighter reliability estimate. (c) Quote check only, no hand-check.
+Reply with your answers (/revise D5: ..., D6: ...), or /next to start step S1.
 
-Reply with your answers (`/revise ...`), or `/next` to start step S1.
-
--- 7 model steps, tokens: {'in': 8973, 'out': 5127, 'reason': 2544, 'cache': 222208}
+-- 4 model steps, tokens: {'in': 6860, 'out': 2581, 'reason': 1986, 'cache': 108095}

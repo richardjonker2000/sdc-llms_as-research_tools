@@ -148,6 +148,8 @@ if [ ! -e "$DEMO_DIR" ]; then
   pip_in "$DEMO_DIR/.venv" -r "$DEMO_DIR/requirements.txt"
   # the demo starts in dry run: fake LLM answers until the researcher goes live
   sed 's/^DRY_RUN=.*/DRY_RUN=1/' "$CFG" > "$DEMO_DIR/config.env"
+  # saved answers: the agent's LLM coding replays notebook 01's answers instead of calling the API
+  ln -s "$HERE/outputs_cached" "$DEMO_DIR/outputs_cached"
   cat > "$DEMO_DIR/start_agent.sh" <<EOF
 #!/usr/bin/env bash
 # Starts OpenCode in this folder with the key from config.env (never printed).

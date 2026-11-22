@@ -1,61 +1,40 @@
-t1-plan: /plan I study how AI changes work. I want to know whether AI patents more often automate human work or augment it, and whether that has changed over time. I have the patent data from the workshop (data/patents.csv) and the LLM codes from notebook 01 (data/patent_codes.csv). I am not good at Python.
+t1-plan: /plan I study how AI changes work. I want to know whether AI patents more often automate human work or augment it, and whether that has changed over time. I have the patent data from the workshop (data/patents.csv), the LLM codes from notebook 01 for 100 of the patents (data/patent_codes.csv), and the codebook we used (data/codebook.py). I am not good at Python.
 
 
-AGENT: I'll start by looking at the workspace and the data.
-  [bash] ls -la && echo "---" && ls -la data/ && echo "---" && ls -la analysis/ outputs/ 2>/dev/null
-  [read] AGENTS.md
-  [read] README.md
-  [read] requirements.txt
-
-AGENT: Now let me write the one inspection script and run it.
+AGENT: I'll start by looking at the data with one script, then draft the plan.
+  [bash] ls -la; ls -la data/ 2>/dev/null; ls -la analysis/ 2>/dev/null; ls -la outputs/ 2>/dev/null
+  [bash] git log --oneline -10 2>/dev/null; git status --short 2>/dev/null
+  [read] data/codebook.py
+  [bash] head -3 data/patents.csv; echo "---"; head -3 data/patent_codes.csv; echo "---"; cat README.md; echo "---"; cat requirements.txt
+  [bash] mkdir -p analysis outputs
   [write] analysis/s0_look.py
   [bash] .venv/bin/python analysis/s0_look.py 2>&1
 
-AGENT: Good picture so far. Let me add the time-pattern checks I need for the research question and re-run the same script once.
-  [edit] analysis/s0_look.py
-  [bash] .venv/bin/python analysis/s0_look.py 2>&1 | tail -60
-
-AGENT: Two more decision-relevant facts to check: the AI subset specifically (since 19 of 30 codes are `is_ai = False`). One last addition to the same script.
-  [edit] analysis/s0_look.py
-  [bash] .venv/bin/python analysis/s0_look.py 2>&1 | tail -45
-
-AGENT: I have the full picture now. Writing PLAN.md.
+AGENT: Data looks clean and complete. Now writing the plan.
   [write] PLAN.md
-  [bash] git add PLAN.md analysis/s0_look.py && git commit -q -m "plan: automate-vs-augment plan for AI patents + data inspection script" && git log 
+  [bash] git add PLAN.md analysis/s0_look.py && git commit -m "plan: automate vs augment in AI patents 2014-2023; one data-look script" && git log --
 
-AGENT: I looked at both files with one script (`analysis/s0_look.py`) and drafted `PLAN.md` (committed).
+AGENT: **Plan drafted: "Automate or augment? AI patents, 2014–2023"** (`PLAN.md`, committed with the one look script `analysis/s0_look.py`).
 
-**The plan in short:**
-1. S1 build the joined analysis dataset (151 patents, 30 coded, sample flags) → `outputs/analysis_dataset.csv`.
-2. S2 code the 121 uncoded patents with one written-down codebook via the workshop helper → `outputs/codes_all.csv`.
-3. S3 validate codes (quote-verbatim check + 10 patents for your hand-check) → `outputs/code_validation.csv`.
-4. S4 descriptive table of automate / augment / neither for AI patents → `outputs/table1_automation.csv`.
-5. S5 per-year counts and shares → `outputs/table2_by_year.csv`.
-6. S6 pooled-period comparison with one test, only if the cells allow → `outputs/table3_periods.csv`.
-7. S7 house-style figure → `outputs/fig_automation_over_time.png`; S8 one-page memo → `outputs/summary.md`.
+What I found in the data:
+- 151 US grants, 2014–2023, no missing values; 100 of them coded (random sample), all from the saved-answer cache, no errors.
+- Among the coded 100: 40 are AI, 51 automates / 42 neither / 7 augments. **Among the 40 AI patents: 30 automates, only 5 augments, 5 neither.**
+- Every "over time" comparison here will be thin: 5 augment labels across ten grant years, and only 4 coded patents in 2023.
 
-**What the data actually looks like (all from the look script):** 151 patents, 2014–2023, no missing values. The 30 notebook-01 codes are all live calls with no errors, and each id matches one patent exactly. But of those 30, only **11 are flagged `is_ai = True`** — and within those 11 there is **9 automate, 1 augments, 1 neither**, spread over just 5 years (2016: 1 … 2021: 5). The "augments" cell is one patent. So the automation-vs-augmentation contrast and especially the "changed over time" part cannot be measured on the current 30; 121 uncoded patents are the real bottleneck, not the codebook.
+What the plan does: build one clean dataset with checks (S1) → descriptive tables (S2) → main automate-vs-augment result with two periods and a Fisher test (S3) → robustness (S4) → optional human agreement check (S5) → a methods/results note (S6). Steps are one script and one output each.
+
+Two things the data told me that I wrote into the plan as limits: the 151 are large-assignee grants, not a random sample of AI patents, so every number is a within-sample share; and "grant year" is not "invention year", so the time trend lags by roughly two years.
 
 **Open decisions**
 
-**D1. Analysis sample — do we code more patents, and how was the 30 chosen?**
-(a) Use only the 30 (AI subset = 11; one "augments" case; no time trend possible).
-(b) Code the remaining 121 with the same codebook so all 151 are comparable (≈121 LLM calls; needs `DRY_RUN=0` from you; if you cannot paste notebook 01's exact prompt, re-code all 151 and keep the old 30 as a blind comparison set).
-(c) Cheap keyword/CPC pre-screen of the 121, then LLM-code only the shortlisted AI candidates.
-*Recommendation: (b).* Also please tell me how notebook 01 picked these 30 (random? first 30? keyword search?) — that sets how far the current 11 generalise and may turn (b) into (c).
+D1. Which sample is the main analysis? (a) AI patents only (n=40, drop "neither") — my recommendation, since your question is about AI patents; (b) all 100 with "neither" as a third category; (c) all 58 with a clear automate/augment label.
 
-**D2. Denominator and the "neither" category.**
-(a) Headline = all three shares (automates / augments / neither), nothing dropped — faithful to the codebook.
-(b) Secondary = automation share among work-affecting patents only (drop "neither").
-(c) Fold "neither" into "augments" — I do not recommend this; it invents cases.
-*Recommendation: (a) headline, (b) clearly labelled secondary.* I also need your reading of "neither": "no work content", or "work content but no human-work substitution"?
+D2. How to measure "over time"? (a) two periods, 2014–2018 vs 2019–2023, plus a year-by-year figure — my recommendation; (b) year-by-year only, no test; (c) logistic regression on year.
 
-**D3. What "changed over time" means operationally.**
-(a) Annual counts and shares, no test, described as this sample.
-(b) Two pooled periods (e.g. 2015–2019 vs 2020–2022) with counts and one Fisher exact test — only if the extended sample gives roughly 5+ AI patents per year.
-(c) Qualitative time argument from the `evidence_quote` / `problem_solved` fields on a handful of patents.
-*Recommendation: (a) always; (b) only if the cells support it and always with counts printed; (c) as a companion.* If the extended sample is still thin, "too few AI patents per year to say" is a legitimate, reportable finding.
+D3. What population do the 151 patents represent? (a) all US grants by these assignees in a year window, (b) hand-picked around AI/tech areas, (c) unknown. This decides whether "40% of the sample is AI" is a fact about patents or an artefact of the selection — I need your answer before any number is interpreted.
 
-Reply with your answers (`/revise ...`), or `/next` to start step S1.
+Two more are parked in the plan: validating the LLM codes against your own hand coding (recommended, but it needs your time), and whether to code the remaining 51 patents (needs live LLM mode; I'd keep the random sample of 100).
 
--- 11 model steps, tokens: {'in': 29250, 'out': 5937, 'reason': 5206, 'cache': 177408}
+Reply with your answers (/revise D1: ..., D2: ..., D3: ...), or /next to start step S1.
+
+-- 8 model steps, tokens: {'in': 23834, 'out': 3948, 'reason': 5130, 'cache': 104768}

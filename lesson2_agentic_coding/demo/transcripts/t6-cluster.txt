@@ -1,0 +1,29 @@
+t6-cluster: /extra Group the 151 patent abstracts into themes by their words, with the cluster-texts skill. Use k = 5 and the standard stop words; no LLM naming. I want to see whether the AI patents fall into particular themes.
+
+  [skill] cluster-texts
+  [write] analysis/x_cluster_themes.py
+  [bash] .venv/bin/python analysis/x_cluster_themes.py 2>&1
+
+AGENT: The codes file has no abstract column — merging the abstracts from `data/patents.csv`:
+  [edit] analysis/x_cluster_themes.py
+  [edit] analysis/x_cluster_themes.py
+  [bash] .venv/bin/python analysis/x_cluster_themes.py 2>&1
+  [edit] analysis/x_cluster_themes.py
+  [bash] .venv/bin/python analysis/x_cluster_themes.py 2>&1
+
+AGENT: Two fixes: the "typical texts" list printed every text in the group, and the random baseline needs the same measure to compare with.
+  [edit] analysis/x_cluster_themes.py
+  [edit] analysis/x_cluster_themes.py
+  [edit] analysis/x_cluster_themes.py
+  [bash] .venv/bin/python analysis/x_cluster_themes.py 2>&1 | tail -75
+  [bash] ls -la outputs/extras/; .venv/bin/python -c " import pandas as pd g = pd.read_csv('outputs/extras/themes_groups.csv') print(g.shape, g['grou
+  [edit] CLAIMS.md
+  [bash] git add analysis/x_cluster_themes.py outputs/extras/themes_groups.csv outputs/extras/themes_report.txt outputs/extras/themes_ai_by_group.png
+
+AGENT: **What:** 151 abstracts grouped by their words (TF-IDF + k-means, k = 5, standard stop words, no LLM naming, 233-word vocabulary, fit 0.357). The AI patents concentrate sharply in one group: G2 ("user, set, image, training, model…", n = 41) is 80.5% AI and holds 33 of the 58 AI patents; G5 ("surface, water, connected, opening, body…", n = 18) is 0% AI; G1 26.7% AI, G4 40.9%, G3 16.0%.
+
+**Files:** `outputs/extras/themes_report.txt` (sizes, top words, 3 typical texts each, stability), `outputs/extras/themes_groups.csv` (group per patent, with the AI flag and label), `outputs/extras/themes_ai_by_group.png` (AI share per group against the 38% overall).
+
+**How checked:** the script asserts 151 coded patents merged with their abstracts, prints group sizes, per-group cohesion and the AI counts, and reruns the clustering with 20 further seeds — the groups are **not stable** (share of pairs staying together 0.217, against 0.220 for random groups of the same sizes), so treat them as a rough reading map only; several top words ("one", "least", "present", "when", "plurality") are patent boilerplate, and adding those to the stop words or trying other k values is your call as a follow-up.
+
+-- 16 model steps, tokens: {'in': 21597, 'out': 5544, 'reason': 5214, 'cache': 1126400}

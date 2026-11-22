@@ -1,6 +1,6 @@
 # Agent harness: a coding agent that owns the code, while the researcher owns the method
 
-A starter project for the "inverse" session. A social-science researcher with little coding experience works with a coding agent ([OpenCode](https://opencode.ai)) on a real dataset: 151 USPTO patents, plus notebook 01's LLM codes for 30 of them.
+A starter project for the "inverse" session. A social-science researcher with little coding experience works with a coding agent ([OpenCode](https://opencode.ai)) on a real dataset: 151 USPTO patents, plus notebook 01's LLM codes for 100 of them and the codebook that made them.
 
 - **The agent** fixes code problems on its own: environments, encodings, bugs, plots.
 - **The researcher** decides every methodological choice: sample, definitions, codebook, LLM use, statistics.
@@ -14,7 +14,9 @@ There is no sandbox. The control comes from OpenCode's own permissions and instr
 | `.opencode/agents/planner.md` | Writes only `PLAN.md` (plus a data-inspection script); ends each turn with numbered decisions D1, D2, ... |
 | `.opencode/agents/builder.md` | Does exactly one plan step, reports, and stops |
 | `.opencode/commands/` | `/plan <idea>`, `/revise <answers>`, `/next`, `/extra <job>` (LaTeX table, diagram), `/explain`, `/status` |
+| `.opencode/skills/code-texts/`, `check-agreement/`, `cluster-texts/` | The methods of lesson 1 notebooks 01, 02 and 03 as skills: what to ask the researcher, the steps, the required checks |
 | `.opencode/skills/setup-env/` | Environment troubleshooting for student laptops in China and Denmark |
+| `data/codebook.py` | Notebook 01's codebook, word for word: the agent imports it and may not change it |
 | `tools/check_env.py` | Read-only environment check; writes `outputs/ENVIRONMENT.txt` |
 | `workshop/` | The same LLM helper as the notebooks; `DRY_RUN=1` gives fake answers |
 

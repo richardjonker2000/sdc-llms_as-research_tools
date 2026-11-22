@@ -15,7 +15,9 @@
       "config.env": "deny",
       "*.env": "deny",
       "workshop/*": "deny",
-      "tools/*": "deny"
+      "tools/*": "deny",
+      "outputs_cached/*": "deny",
+      "outputs_cached": "deny"
     },
     "edit": {
       "*": "deny"
@@ -68,7 +70,14 @@
       "head workshop/*": "deny",
       "head tools/*": "deny",
       "grep * workshop/*": "deny",
-      "grep * tools/*": "deny"
+      "grep * tools/*": "deny",
+      "ls outputs_cached*": "deny",
+      "cat outputs_cached*": "deny",
+      "head outputs_cached*": "deny",
+      "grep * outputs_cached*": "deny",
+      "find outputs_cached*": "deny",
+      "du outputs_cached*": "deny",
+      "wc outputs_cached*": "deny"
     }
   }
 }

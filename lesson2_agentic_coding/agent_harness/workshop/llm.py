@@ -26,7 +26,7 @@ from tqdm import tqdm
 
 ROOT = Path(__file__).resolve().parent.parent
 CACHE_DIR = ROOT / "outputs_cached"
-KEYS = ["PROVIDER", "API_KEY", "MODEL", "BASE_URL", "RPM", "DRY_RUN", "OLLAMA_URL", "DECISION_MODEL", "REASONING", "OPENALEX_API_KEY", "WORKERS"]
+KEYS = ["PROVIDER", "API_KEY", "MODEL", "BASE_URL", "RPM", "DRY_RUN", "OLLAMA_URL", "DECISION_MODEL", "REASONING", "OPENALEX_API_KEY", "WORKERS", "PRICE_IN", "PRICE_OUT", "CURRENCY"]
 PROVIDERS = {  # name: (base_url, default model)
     "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai/", "gemini-3.5-flash-lite"),  # Nov 2026: -latest alias hung; full Flash free tier = 20 requests/day
     "minimax_intl": ("https://api.minimax.io/v1", "MiniMax-M3"),
@@ -36,6 +36,10 @@ PROVIDERS = {  # name: (base_url, default model)
     "modelscope": ("https://api-inference.modelscope.cn/v1", ""),
     "ollama": ("{OLLAMA_URL}/v1", "gemma4:e2b"),
 }
+PRICES = {  # per million tokens: (input, output, cached input, currency). Official price pages, checked 22 Nov 2026.
+    ("minimax_cn", "MiniMax-M3.1-Flash"): (1.00, 4.00, 0.10, "¥"),   # platform.minimax.cn/docs/guides/pricing
+    ("minimax_cn", "MiniMax-M3"): (2.10, 8.40, 0.42, "¥"),           # up to 512k input tokens
+}   # Other providers or models: set PRICE_IN / PRICE_OUT (and CURRENCY) in config.env
 CFG: dict[str, Any] = {}
 
 
@@ -66,6 +70,11 @@ def load_config(env_file: Path | None = None) -> dict[str, Any]:
         openalex_key=v["OPENALEX_API_KEY"],
         workers=int(v["WORKERS"] or 4),
     )
+    price = PRICES.get((provider, CFG["model"]), (None, None, None, "$"))
+    CFG["price_in"] = float(v["PRICE_IN"]) if v["PRICE_IN"] else price[0]
+    CFG["price_out"] = float(v["PRICE_OUT"]) if v["PRICE_OUT"] else price[1]
+    CFG["price_cached"] = price[2] if not v["PRICE_IN"] else CFG["price_in"]   # own price given: no cache discount
+    CFG["currency"] = v["CURRENCY"] or price[3]
     return CFG
 
 
@@ -169,14 +178,83 @@ def _complete(messages: list[dict], temperature: float, fake) -> tuple[str, str]
     key = _key("chat", CFG["provider"], CFG["model"], messages, temperature, *([extra] if extra else []))
     hit = _cache_get(key)
     if hit is not None:
+        _record_usage("cache", hit.get("usage") or {})
         return _log("cache", key) or hit["raw"], "cache"
     if CFG["dry_run"]:
         return _log("fake", key) or fake(), "fake"
     _log("live", key)
     raw, usage = _call_api(messages, temperature)
+    _record_usage("live", usage)
     _cache_put(key, {"provider": CFG["provider"], "model": CFG["model"], "temperature": temperature,
                      "params": extra, "messages": messages, "raw": raw, "usage": usage})
     return raw, "live"
+
+
+USAGE: list[dict] = []   # one row per answer this session (live or from the cache), for cost estimates
+
+
+def _record_usage(source: str, usage: dict) -> None:
+    _watch_cost()
+    USAGE.append({"source": source, "tokens_in": usage.get("prompt_tokens", 0),
+                  "cached_in": (usage.get("prompt_tokens_details") or {}).get("cached_tokens", 0),
+                  "tokens_out": usage.get("completion_tokens", 0),
+                  "thinking": (usage.get("completion_tokens_details") or {}).get("reasoning_tokens", 0)})
+
+
+def usage_table() -> pd.DataFrame:
+    """Token counts of every answer since the kernel started (or since reset_usage()).
+    Saved answers keep the counts from the original live call, so the cost is what the run would cost live.
+    Fake answers (dry run) are not counted."""
+    return pd.DataFrame(USAGE, columns=["source", "tokens_in", "cached_in", "tokens_out", "thinking"])
+
+
+def reset_usage() -> None:
+    USAGE.clear()
+    _cost_mark[0] = 0
+
+
+def cost(rows: list[dict]) -> float | None:
+    """Price of these answers in CFG['currency'] (None if the price is unknown).
+    Input tokens the provider had cached are billed at the cheaper cached price; thinking counts as output."""
+    if CFG.get("price_in") is None or CFG.get("price_out") is None:
+        return None
+    cached = sum(r["cached_in"] for r in rows)
+    fresh = sum(r["tokens_in"] for r in rows) - cached
+    out = sum(r["tokens_out"] for r in rows)
+    return (fresh * CFG["price_in"] + cached * CFG["price_cached"] + out * CFG["price_out"]) / 1e6
+
+
+_cost_mark = [0]          # USAGE length when the current notebook cell started
+_cost_watching = [False]
+
+
+def _watch_cost() -> None:
+    """In Jupyter: after every cell that got LLM answers, print what they cost and the running total."""
+    if _cost_watching[0]:
+        return
+    try:
+        ip = get_ipython()  # type: ignore[name-defined]  # noqa: F821
+    except NameError:
+        return
+    _cost_watching[0] = True
+
+    def before(*_):
+        _cost_mark[0] = len(USAGE)
+
+    def after(*_):
+        rows = USAGE[_cost_mark[0]:]
+        if not rows:
+            return
+        tin, tout = sum(r["tokens_in"] for r in rows), sum(r["tokens_out"] for r in rows)
+        here, total = cost(rows), cost(USAGE)
+        cur = CFG["currency"]
+        money = f" = {cur}{here:.4f}   (notebook so far: {cur}{total:.4f})" if here is not None else " (no price known for this model)"
+        saved = "   [saved answers: free today, this is the live price]" if all(r["source"] == "cache" for r in rows) else ""
+        print(f"Cost of this cell: {len(rows)} answer{'s' * (len(rows) != 1)}, {tin:,} tokens in, {tout:,} out{money}{saved}")
+        _cost_mark[0] = len(USAGE)
+
+    ip.events.register("pre_run_cell", before)
+    ip.events.register("post_run_cell", after)
 
 
 def _log(source: str, key: str) -> None:
@@ -241,12 +319,19 @@ TEXT:
 {text}
 \"\"\""""
 
+RETRY = """That answer was not valid:
+{error}
+Return ONLY the corrected JSON object."""
+
 
 def extract(text: str, schema: type[BaseModel], instructions: str, temperature: float = 0.0,
-            max_retries: int = 2) -> Extraction:
-    """Structured output: ask for JSON, validate with pydantic, retry with the error message."""
+            max_retries: int = 2, prompt: str = PROMPT, retry: str = RETRY) -> Extraction:
+    """Structured output: ask for JSON, validate with pydantic, retry with the error message.
+
+    `prompt` wraps your instructions ({instructions}, {schema}, {text}); `retry` is sent back with {error}
+    when an answer fails validation. Notebook 01 shows both."""
     schema_json = json.dumps(schema.model_json_schema(), ensure_ascii=False)
-    messages = [{"role": "user", "content": PROMPT.format(instructions=instructions, schema=schema_json, text=text)}]
+    messages = [{"role": "user", "content": prompt.format(instructions=instructions, schema=schema_json, text=text)}]
     sources, error, raw = [], None, ""
     for attempt in range(1, max_retries + 2):
         rng = random.Random(_key(text, schema_json, attempt, temperature))
@@ -259,8 +344,7 @@ def extract(text: str, schema: type[BaseModel], instructions: str, temperature: 
         except (ValueError, ValidationError) as e:
             error = str(e)[:1500]
             messages = messages + [{"role": "assistant", "content": raw},
-                                   {"role": "user", "content": f"That answer was not valid:\n{error}\n"
-                                                               "Return ONLY the corrected JSON object."}]
+                                   {"role": "user", "content": retry.format(error=error)}]
     return Extraction(None, raw, max_retries + 1, _worst(sources), error)
 
 
@@ -269,7 +353,7 @@ def _worst(sources: list[str]) -> str:
 
 
 def extract_many(df: pd.DataFrame, text_col: str, schema: type[BaseModel], instructions: str,
-                 temperature: float = 0.0, workers: int | None = None) -> pd.DataFrame:
+                 temperature: float = 0.0, workers: int | None = None, **prompts) -> pd.DataFrame:
     """Run extract() on every row, `workers` requests at a time (within the RPM limit).
 
     Failed rows get 'error' filled in instead of stopping the loop; a setup problem (no key, no
@@ -279,7 +363,7 @@ def extract_many(df: pd.DataFrame, text_col: str, schema: type[BaseModel], instr
 
     def one(text: str) -> dict:
         try:
-            r = extract(text, schema, instructions, temperature)
+            r = extract(text, schema, instructions, temperature, **prompts)   # prompts: prompt=, retry=
             row = r.data.model_dump(mode="json") if r.data else {}
             return row | {"_source": r.source, "_attempts": r.attempts, "error": r.error}
         except SetupError:
@@ -490,6 +574,9 @@ def status() -> None:
     print(f"Mode     : {mode().upper()}: {explain}")
     print(f"Decision : {c['decision_model']} @ {c['ollama_url']}: {dm}")
     print(f"Cache    : {len(list(CACHE_DIR.glob('*.json')))} saved answers in outputs_cached/")
+    if c["price_in"] is not None:
+        print(f"Price    : {c['currency']}{c['price_in']:.2f} per million tokens in ({c['currency']}{c['price_cached']:.2f} if cached), "
+              f"{c['currency']}{c['price_out']:.2f} out: every cell prints what its answers cost")
 
 
 load_config()

@@ -1,0 +1,20 @@
+t7-diagram: /extra Make a diagram of what we did, for a slide: from the 151 patents, to notebook 01's 100 codes plus the 51 new ones with the same codebook, to the table and the themes. Put the real counts on the boxes.
+
+
+AGENT: Extra job: an SVG diagram. Writing a script that pulls the real counts from the saved files and emits the SVG.
+  [write] analysis/x_process_diagram.py
+  [bash] .venv/bin/python analysis/x_process_diagram.py 2>&1
+  [edit] analysis/x_process_diagram.py
+  [edit] analysis/x_process_diagram.py
+  [bash] .venv/bin/python analysis/x_process_diagram.py 2>&1 && echo "--- SVG ---" && cat outputs/extras/process_diagram.svg
+  [bash] .venv/bin/python -c " import xml.etree.ElementTree as ET t = ET.parse('outputs/extras/process_diagram.svg') r = t.getroot() print('valid XML
+  [edit] CLAIMS.md
+  [bash] git add analysis/x_process_diagram.py outputs/extras/process_diagram.svg CLAIMS.md && git commit -m "extra: pipeline diagram (SVG) with real
+
+AGENT: **What:** a slide diagram of the pipeline in three columns — inputs (151 abstracts from `data/patents.csv`; 100 notebook 01 codes from `data/patent_codes.csv`), coding (unchanged `data/codebook.py` → 51 new codes: 48 live + 3 from cache, 0 failed → merged 151 codes: 58 AI / 93 not AI, 77 automates / 62 neither / 12 augments), and outputs (the table: AI n=58 → 43/7/8, not AI n=93 → 34/5/54; the themes: AI share G2 80.5%, G4 40.9%, G1 26.7%, G3 16.0%, G5 0%, stability 0.217 vs 0.220 random).
+
+**File:** `outputs/extras/process_diagram.svg` (1280×720, hand-written SVG from `analysis/x_process_diagram.py`; open it in a browser or drop it straight into your slide software — no external tools used).
+
+**How checked:** every number on a box is read from the saved files by the script rather than typed, the script asserts each text line fits its box and each box fits its lines, and the finished file was re-read as valid XML (7 boxes + background, 53 text elements, 6 arrows); each box names the file and step it stands for, with a footnote that the groups are a reading map and all counts are within-sample shares.
+
+-- 9 model steps, tokens: {'in': 14309, 'out': 4284, 'reason': 5412, 'cache': 787968}

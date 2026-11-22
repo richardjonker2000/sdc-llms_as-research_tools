@@ -1,27 +1,26 @@
 t3-next: /next 
 
 
-AGENT: Executing S1 — building the joined analysis dataset.
-  [write] analysis/s1_build_dataset.py
-  [bash] .venv/bin/python analysis/s1_build_dataset.py 2>&1
-
-AGENT: All checks passed. Now the claims log and the plan tick.
-  [write] CLAIMS.md
+AGENT: Next step is S1: build the analysis dataset with the checks.
+  [write] analysis/s1_dataset.py
+  [bash] .venv/bin/python analysis/s1_dataset.py 2>&1
+  [bash] ls -la outputs/; ls CLAIMS.md 2>&1; head -4 outputs/dataset_coded.csv
   [edit] PLAN.md
-  [bash] git add analysis/s1_build_dataset.py outputs/analysis_dataset.csv CLAIMS.md PLAN.md && git commit -q -m "S1: build analysis dataset (151 pat
+  [write] CLAIMS.md
+  [bash] git add PLAN.md CLAIMS.md analysis/s1_dataset.py outputs/dataset_coded.csv outputs/s1_checks.txt && git commit -m "S1: build analysis datase
 
 AGENT: **Step S1 done: build the analysis dataset**
 
-What I did: Joined the 151 patents with the 30 notebook-01 codes into one table, one row per patent, and added two flags: "coded" (has an LLM code) and "is_ai" (blank for patents not coded yet). The 121 patents still to be coded are in the file with empty code fields, ready for step S2.
+What I did: joined the 100 notebook-01 codes onto all 151 patents, so every patent is on one row (code columns filled where a code exists, the other 51 marked "not coded yet"). The codebook file was read only, never changed.
 
-Result: `outputs/analysis_dataset.csv` — 151 rows, 30 coded, 121 to code later. Among the coded 30: 16 "automates human work", 2 "augments human work", 12 "neither"; 11 flagged AI and 19 not. Coded patents per year: 2015: 3, 2016: 3, 2017: 4, 2018: 3, 2019: 5, 2020: 4, 2021: 6, 2022: 2.
+Result: `outputs/dataset_coded.csv` has 151 rows (100 coded, 51 not yet coded) and `outputs/s1_checks.txt` has the full check log — 22 checks, 22 passed, 0 failed. Key confirmations: the 100 coded patents are exactly the random sample of 100 (so they were picked at random, not by hand), and the codes agree with the patent file on year, assignee, country and CPC subclass for all 100 rows.
 
-How I checked it: The script asserts and then re-reads the saved file — 151 rows, no duplicate ids, 30 rows with a code, every coded id present exactly once, the three-way split reproduces 16/2/12 exactly, is_ai reproduces 11 True / 19 False, and no coded row carries an error. It also verifies that the patent details repeated inside the codes file (title, year, assignee, country, CPC subclass) agree with the patent file on every row, so the two files really describe the same patents.
+How I checked it: 22 checks, each printed and logged. The coded rows all use valid codebook labels, none has a missing field, no empty evidence quote, no error flag, and all 100 came from the saved-answer cache. Evidence quotes are word-for-word in the abstract for 97 of 100; the 3 that are not are listed in the log (US10213080B2, US10707632B1, US11985491B2) — worth a glance, since a reworded quote usually means the model paraphrased.
 
-Please check: Open `outputs/analysis_dataset.csv` and read the columns `id`, `year`, `coded`, `is_ai`, `automation_vs_augmentation` for the first 5–10 rows. The first three rows should show `coded = False` and empty code fields (they are among the 121 still to be coded). If any row looks off, tell me before S2.
+Please check: open `outputs/s1_checks.txt` and skim the 3 non-verbatim quotes; open `outputs/dataset_coded.csv` and confirm the "coded" column shows True for 100 rows.
 
-Decisions needed: **D4** still open and it blocks S2 — please paste notebook 01's prompt/codebook if you have it, otherwise say "write a new one" and I will write one from the six field names plus your "neither = no work content" rule. Also for S2 you need to set `DRY_RUN=0` in `config.env`; with it left at 1 the helper returns fake answers, which can only prove the script runs, never be reported. (D7 — how the 151 were selected — is still open but does not block S1 or S2.)
+Decisions needed: none for this step. D5 (re-coding 10 cached patents live to test comparability) and D6 (your own hand coding) are still open, and D6 is not needed until the reliability step.
 
-Next: S2 code the 121 remaining patents. Reply /next to continue, or tell me what to change.
+Next: S2 code the remaining 51 patents with the same codebook. It needs live calls on — flip `DRY_RUN` to live in `config.env` when you are ready, then reply /next and I will run it and report the cost.
 
--- 6 model steps, tokens: {'in': 43244, 'out': 2820, 'reason': 908, 'cache': 209312}
+-- 7 model steps, tokens: {'in': 39263, 'out': 3178, 'reason': 845, 'cache': 218368}

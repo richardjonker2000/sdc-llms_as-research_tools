@@ -2,4 +2,4 @@
 __pycache__/
 .pytest_cache/
 config.env
-outputs_cached/
+outputs_cached
