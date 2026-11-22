@@ -66,13 +66,22 @@ print(PROMPT.format(instructions=RUBRIC, schema=schema_json, text=sample.task.il
 %% md
 ## Step 2 · Collect the codes
 
-Coders A and B: the same model, twice. Coder C: Claude's saved labels.
+Coders A and B: the same model, twice. Each run is 40 calls to the API; the line under each cell says what it cost.
 
 %% code
-run_a = extract_many(sample, "task", Exposure, RUBRIC, temperature=0.0)
-run_b = extract_many(sample, "task", Exposure, RUBRIC, temperature=0.7)
-print("failed rows:", run_a["error"].notna().sum() + run_b["error"].notna().sum())
+run_a = extract_many(sample, "task", Exposure, RUBRIC, temperature=0.0)   # coder A
+print("failed rows:", run_a["error"].notna().sum())
 
+%% code
+run_b = extract_many(sample, "task", Exposure, RUBRIC, temperature=0.7)   # coder B
+print("failed rows:", run_b["error"].notna().sum())
+
+%% md
+Run B sent the same prompts as run A, so the provider had them **cached** and billed the input at a tenth of the price: the same 40 tasks cost noticeably less the second time.
+
+Coder C: Claude's labels, saved in a file (no API call here). We put all three side by side.
+
+%% code
 codes = sample[["task_id", "occupation_title", "task"]].assign(
     A=run_a["label"], B=run_b["label"], reason_A=run_a["reason"], reason_B=run_b["reason"])
 codes = codes.merge(claude[["task_id", "label"]].rename(columns={"label": "C"}), on="task_id")
