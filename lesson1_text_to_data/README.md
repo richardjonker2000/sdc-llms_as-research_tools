@@ -9,9 +9,9 @@ Start with `00_setup.ipynb`: it should say **Connection OK**.
 | Time | Part | Notebook | What it shows | Cost with a live key* |
 | --- | --- | --- | --- | --- |
 | 11:30 | Intro | – | Classify vs discover | – |
-| 11:35 | A · LLM coding | `01_codebook_extraction` | A codebook turns 30 patent abstracts into a validated table: the full prompt, validation and retry, the quote check, a figure | ¥0.04 (32 answers) |
-| 11:53 | A · LLM coding | `02_agreement` | Do coders agree? One model twice, and two models: percent agreement, Cohen's kappa by hand, weighted kappa, Fleiss' kappa, the disagreements | ¥0.03 (80 answers) |
-| 12:08 | B · Unsupervised | `03_clustering` | 814 abstracts grouped on the laptop CPU in under a second: TF-IDF and k-means written out, groups over time, how many groups, stability; one optional LLM call names the groups | ¥0.002 (1 answer) |
+| 11:35 | A · LLM coding | `01_codebook_extraction` | A codebook turns 100 patent abstracts into a validated table: the full prompt, validation and retry, the quote check, a figure | ¥0.13 (107 answers) |
+| 11:53 | A · LLM coding | `02_agreement` | Do coders agree on 100 tasks? One model twice, and two models: percent agreement, Cohen's kappa by hand, weighted kappa, Fleiss' kappa, the disagreements | ¥0.08 (200 answers) |
+| 12:08 | B · Unsupervised | `03_clustering` | 814 abstracts from OpenAlex (search query and API link included) grouped on the laptop CPU in under a second: TF-IDF and k-means written out, groups over time, how many groups, stability; one optional LLM call names the groups | ¥0.002 (1 answer) |
 | 12:18 | B · Unsupervised | `04_literature_review` | From one research question to a map of the field: search, citation network, streams named by an LLM, chat with the literature | ¥0.02 (12 answers) |
 | 12:28 | Wrap-up | – | – | – |
 

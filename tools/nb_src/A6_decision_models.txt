@@ -26,7 +26,7 @@ status()
 
 %% code
 tasks = pd.read_csv("../data/onet_tasks.csv")
-gold = pd.read_csv("../data/onet_labels_claude.csv")
+gold = pd.read_csv("../data/onet_labels_claude.csv").head(40)   # the first 40 labelled tasks (notebook 02 uses all 100)
 data = tasks.merge(gold[["task_id", "label"]], on="task_id")
 data["gold"] = data["label"].map({"high": "yes", "medium": "yes", "low": "no"})
 print(len(data), "tasks with a reference label (coded by Claude, a second LLM: replace with your own hand coding for real work)")
@@ -133,7 +133,7 @@ How to read this:
 
 ## Step 5 · Local decision model vs. API model
 
-Notebook 02 coded the same 40 tasks with the big API model, on the three-level rubric. We convert its labels to yes/no the same way, then print every task where the two models disagree.
+Notebook 02 coded these 40 tasks (and 60 more) with the big API model, on the three-level rubric. We convert its labels to yes/no the same way, then print every task where the two models disagree.
 
 %% code
 runs = pathlib.Path("../outputs/onet_exposure_runs.csv")

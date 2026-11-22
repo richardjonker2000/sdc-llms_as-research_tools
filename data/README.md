@@ -8,7 +8,7 @@ Everything the notebooks read ships in this folder. Nothing is downloaded during
 | `onet_tasks.csv` | 150 | `task_id, occupation_code, occupation_title, task` | O\*NET 31.0 Task Statements, 15 occupations × 10 tasks (core tasks first) | CC BY 4.0 | Final |
 | `trials.csv` | 30 | `nct_id, title, sponsor, phase, eligibility_text, registry_min_age, registry_max_age, condition_searched` | ClinicalTrials.gov API v2: completed interventional phase 2/3 studies, 2 per condition for 15 conditions, eligibility text 1,500–6,000 characters | Public domain | Final |
 | `interview_snippets.csv` | 15 | `id, speaker, language, text, note` | **Synthetic**, written for the workshop. All people and firms are fictional. 11 English, 4 Chinese | CC0 | Final |
-| `onet_labels_claude.csv` | 40 | `task_id, label, note` | LLM-exposure labels (`high` / `medium` / `low`) for 40 tasks from `onet_tasks.csv` | CC0 | Labels by Claude, a second LLM annotator (not human) |
+| `onet_labels_claude.csv` | 100 | `task_id, label, note` | LLM-exposure labels (`high` / `medium` / `low`) for 40 tasks from `onet_tasks.csv` | CC0 | Labels by Claude, a second LLM annotator (not human) |
 | `my_data_example.csv` | 10 | `id, text` | **Synthetic** example texts for notebook A1 | CC0 | Final |
 | `openalex/<topic>.csv` (3 files) | ai_labour 1,152, green_innovation 1,220, china_innovation 1,129 | `id, doi, title, year, type, venue, cited_by_count, authors, institutions, countries, topic, subfield, field, abstract, references, found_via` | OpenAlex API: a seed paper plus its references, top citing works and a topic search | CC0 (OpenAlex). Abstracts belong to their publishers; use for analysis only | Samples for the bibliometrics add-on |
 
@@ -64,7 +64,7 @@ All public data was retrieved on **8 November 2026** with the scripts in `tools/
 
 | File | Papers | Seed paper | Search query |
 | --- | --- | --- | --- |
-| `ai_labour.csv` | 1,152 | Acemoglu & Restrepo, *Robots and Jobs* (JPE), 10.1086/705716 | `(automation OR robots OR "artificial intelligence") AND (employment OR wages OR jobs OR "labor market")` |
+| `ai_labour.csv` | 1,147 | Acemoglu & Restrepo, *Robots and Jobs* (JPE), 10.1086/705716 | `(automation OR "industrial robots" OR "artificial intelligence" OR "technological change") AND ("labor market" OR "labour market" OR employment OR wages OR jobs OR workers)` |
 | `green_innovation.csv` | 1,220 | Acemoglu, Aghion, Bursztyn & Hemous, *The Environment and Directed Technical Change* (AER), 10.1257/aer.102.1.131 | `"green innovation" OR "environmental innovation" OR "eco-innovation" OR "clean technology" OR "green technology"` |
 | `china_innovation.csv` | 1,129 | Wei, Xie & Zhang, *From "Made in China" to "Innovated in China"* (JEP), 10.1257/jep.31.1.49 | `(China OR Chinese) AND (innovation OR "R&D" OR patents) AND (firms OR enterprises)` |
 
@@ -88,7 +88,7 @@ All public data was retrieved on **8 November 2026** with the scripts in `tools/
 - All people and firms are invented. Two firm names were changed because they resembled real companies (Fjord Line, Huaxin). Cities are real places used only as settings.
 
 ### onet_labels_claude.csv
-- **Origin:** labels assigned by Claude (Anthropic's LLM) using the three-level rubric in notebook 02, for 40 tasks from `onet_tasks.csv` (2–3 per occupation). First coded on 8 November 2026, re-checked on 22 November 2026 (one change: task 21514, medium to high).
+- **Origin:** labels assigned by Claude (Anthropic's LLM) using the three-level rubric in notebook 02, for 100 tasks from `onet_tasks.csv`: the first 40 (2–3 per occupation) coded on 8 November 2026 and re-checked on 22 November 2026 (one change: task 21514, medium to high); 60 more (4 per occupation, drawn at random) added on 22 November 2026. Notebooks A5 and A6 use the first 40.
 - **Not** human-coded and **not** from O\*NET. Notebook 02 uses them as a second LLM annotator, to measure agreement between models.
 
 ### my_data_example.csv
@@ -107,7 +107,7 @@ All public data was retrieved on **8 November 2026** with the scripts in `tools/
 
 **trials.csv**: `registry_min_age` / `registry_max_age` are the structured ages stored by the registry. Notebook A2 compares them with what the LLM extracts from the free text.
 
-**onet_labels_claude.csv**: 7 high, 21 medium and 12 low. One LLM's judgement using the rubric in notebook 02; for human-model agreement, hand-code a sample yourself.
+**onet_labels_claude.csv**: 17 high, 42 medium and 41 low. One LLM's judgement using the rubric in notebook 02; for human-model agreement, hand-code a sample yourself.
 
 ## Required attribution
 

@@ -37,7 +37,7 @@ status()
 %% code
 tasks = pd.read_csv("../data/onet_tasks.csv")
 claude = pd.read_csv("../data/onet_labels_claude.csv")
-sample = tasks.merge(claude[["task_id"]], on="task_id")   # the 40 tasks Claude coded
+sample = tasks.merge(claude[["task_id"]], on="task_id")   # the 100 tasks Claude coded
 print(len(sample), "tasks from", sample.occupation_title.nunique(), "occupations")
 sample[["occupation_title", "task"]].head()
 
@@ -66,7 +66,7 @@ print(PROMPT.format(instructions=RUBRIC, schema=schema_json, text=sample.task.il
 %% md
 ## Step 2 · Collect the codes
 
-Coders A and B: the same model, twice. Each run is 40 calls to the API; the line under each cell says what it cost.
+Coders A and B: the same model, twice. Each run is 100 calls to the API; the line under each cell says what it cost.
 
 %% code
 run_a = extract_many(sample, "task", Exposure, RUBRIC, temperature=0.0)   # coder A
@@ -77,7 +77,7 @@ run_b = extract_many(sample, "task", Exposure, RUBRIC, temperature=0.7)   # code
 print("failed rows:", run_b["error"].notna().sum())
 
 %% md
-Run B sent the same prompts as run A, so the provider had them **cached** and billed the input at a tenth of the price: the same 40 tasks cost noticeably less the second time.
+Run B sent the same prompts as run A, so the provider had them **cached** and billed the input at a tenth of the price: the same 100 tasks cost noticeably less the second time.
 
 Coder C: Claude's labels, saved in a file (no API call here). We put all three side by side.
 

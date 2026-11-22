@@ -25,7 +25,26 @@ from workshop import *
 setup_plots()
 
 %% md
-The data: a prepared sample from OpenAlex, an open database of research papers. Papers about AI, automation and labour markets; we keep the 814 that have an abstract.
+## The data: where it comes from
+
+[OpenAlex](https://openalex.org) is a free, open database of about 250 million research papers, with titles, abstracts, authors, citations and topics. The sample here was downloaded from its API on 9 November 2026 with this search on titles and abstracts:
+
+```
+(automation OR "industrial robots" OR "artificial intelligence" OR "technological change")
+AND ("labor market" OR "labour market" OR employment OR wages OR jobs OR workers)
+```
+
+How the 1,147 papers were picked (code: `tools/fetch_openalex.py`):
+
+1. **Seed paper:** Acemoglu & Restrepo (2020), *Robots and Jobs*, its references, and the 400 most-cited papers that cite it.
+2. **The search above**, balanced by period: the 200 most relevant articles cited at least 5 times before 2010, in 2010–2017 and from 2018.
+3. **Classics:** the 150 works most often cited by all of the above.
+
+**Do it yourself.** The API is a web address, so you can try a search in your browser first:
+[api.openalex.org/works?search=robots wages](https://api.openalex.org/works?search=robots%20wages) returns the first matching papers as JSON.
+The documentation is at [docs.openalex.org](https://docs.openalex.org) (start with *Works* and *Search*). Without a key, everyone on the same network (a campus Wi-Fi, for example) shares one small free budget of $0.10 a day. A **free API key** from [openalex.org/settings/api](https://openalex.org/settings/api) gives you your own $1 a day, plenty for a sample like this one. Put it in `config.env` as `OPENALEX_API_KEY=`, and notebook 04 builds a sample from your own research question.
+
+We keep the 814 papers that have an abstract.
 
 %% code
 papers = pd.read_csv("../data/openalex/ai_labour.csv")
@@ -64,6 +83,8 @@ Each paper becomes a row of numbers, one column per word.
 - **IDF** (inverse document frequency): how rare the word is across all papers. A word in every paper gets weight near 0; a word in a few papers gets a high weight.
 
 Their product says: *this word is frequent here, and rare elsewhere*. We keep words that appear in at least 5 papers and in at most half of them.
+
+So every paper becomes a **vector with one dimension per word**: here about 2,400 dimensions, most of them 0, because one abstract uses only a few hundred of those words.
 
 %% code
 n_docs = len(docs)

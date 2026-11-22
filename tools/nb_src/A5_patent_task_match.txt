@@ -19,7 +19,7 @@ from workshop import *
 setup_plots()
 patents = pd.read_csv("../data/patents.csv")
 tasks = pd.read_csv("../data/onet_tasks.csv")
-shortlist = tasks.merge(pd.read_csv("../data/onet_labels_claude.csv")[["task_id", "label"]], on="task_id")
+shortlist = tasks.merge(pd.read_csv("../data/onet_labels_claude.csv").head(40)[["task_id", "label"]], on="task_id")   # the first 40 labelled tasks
 print(len(shortlist), "tasks from", shortlist.occupation_title.nunique(), "occupations")
 
 %% md

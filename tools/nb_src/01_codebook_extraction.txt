@@ -3,7 +3,7 @@
 
 > **Old question:** How do we turn thousands of patent abstracts into variables we can analyse, without hand-coding each one?
 > **New tool:** an LLM that fills in a *codebook* we write ourselves, with every answer checked against a fixed format.
-> **What you'll see:** one abstract coded step by step, then 30 abstracts turned into a table, a check for invented quotes, and a figure.
+> **What you'll see:** one abstract coded step by step, then 100 abstracts turned into a table, a check for invented quotes, and a figure.
 
 %% md
 ## The idea in one paragraph
@@ -118,12 +118,12 @@ print("RAW ANSWER:\n", result.raw[:800])
 pd.Series(result.data.model_dump(), name="validated")
 
 %% md
-## Step 3 · Code 30 abstracts
+## Step 3 · Code 100 abstracts
 
 `extract_many` loops over a table, shows a progress bar, reuses saved answers, respects the rate limit, and never stops on a bad row: failed rows get a message in the `error` column instead.
 
 %% code
-sample = patents.sample(30, random_state=1)
+sample = patents.sample(100, random_state=1)   # 100 of the 151 patents, drawn at random
 codes = extract_many(sample, "abstract", PatentCode, INSTRUCTIONS, prompt=TEMPLATE, retry=RETRY)
 ok = codes[codes["error"].isna()]   # rows that were coded successfully
 print("failed rows:", len(codes) - len(ok))
@@ -165,7 +165,7 @@ ax.set_xlabel("number of patents"); ax.grid(axis="x"); ax.grid(axis="y", visible
 plt.show()
 
 %% md
-With 30 patents these figures are a demonstration, not a finding. The point is the pipeline: **text → codebook → validated table → figure**, all of it saved and repeatable.
+With 100 patents these figures are a demonstration, not a finding. The point is the pipeline: **text → codebook → validated table → figure**, all of it saved and repeatable.
 
 %% code
 pathlib.Path("../outputs").mkdir(exist_ok=True)
