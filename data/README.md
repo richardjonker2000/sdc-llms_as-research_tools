@@ -10,6 +10,7 @@ Everything the notebooks read ships in this folder. Nothing is downloaded during
 | `interview_snippets.csv` | 15 | `id, speaker, language, text, note` | **Synthetic**, written for the workshop. All people and firms are fictional. 11 English, 4 Chinese | CC0 | Final |
 | `onet_labels_claude.csv` | 100 | `task_id, label, note` | LLM-exposure labels (`high` / `medium` / `low`) for 40 tasks from `onet_tasks.csv` | CC0 | Labels by Claude, a second LLM annotator (not human) |
 | `my_data_example.csv` | 10 | `id, text` | **Synthetic** example texts for notebook A1 | CC0 | Final |
+| `openalex/ai_sustainability.csv` | 1,000 (794 with abstract) | same as below | OpenAlex API, 23 Nov 2026: one title-and-abstract search for AI × sustainability (English journal articles from 2015, cited 5+ times, social sciences), the 1,000 most relevant. Query in notebook 03 and `organisers/build/fetch_openalex.py` | CC0 (OpenAlex). Abstracts belong to their publishers; use for analysis only | Notebook 03 |
 | `openalex/<topic>.csv` (3 files) | ai_labour 1,152, green_innovation 1,220, china_innovation 1,129 | `id, doi, title, year, type, venue, cited_by_count, authors, institutions, countries, topic, subfield, field, abstract, references, found_via` | OpenAlex API: a seed paper plus its references, top citing works and a topic search | CC0 (OpenAlex). Abstracts belong to their publishers; use for analysis only | Samples for the bibliometrics add-on |
 
 ## Provenance: where each file came from

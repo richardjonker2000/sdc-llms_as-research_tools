@@ -3,7 +3,7 @@
 
 > **Old question:** What is in this pile of texts, before I know what to look for?
 > **New tool:** none, on purpose. Two classic algorithms (TF-IDF word weights and k-means), written out in about 30 lines of numpy. No LLM, no internet, under a second on a laptop CPU.
-> **What you'll see:** 814 abstracts on AI and work turned into numbers, grouped, described, followed over time, and checked for stability. One optional LLM call at the end names the groups.
+> **What you'll see:** 794 abstracts on AI and sustainability turned into numbers, grouped, described, followed over time, and checked for stability. One optional LLM call at the end names the groups.
 
 %% md
 ## Supervised vs unsupervised
@@ -27,27 +27,24 @@ setup_plots()
 %% md
 ## The data: where it comes from
 
-[OpenAlex](https://openalex.org) is a free, open database of about 250 million research papers, with titles, abstracts, authors, citations and topics. The sample here was downloaded from its API on 9 November 2026 with this search on titles and abstracts:
+[OpenAlex](https://openalex.org) is a free, open database of about 250 million research papers, with titles, abstracts, authors, citations and topics. The sample here is **one search** on its API (23 November 2026), matched against titles and abstracts:
 
 ```
-(automation OR "industrial robots" OR "artificial intelligence" OR "technological change")
-AND ("labor market" OR "labour market" OR employment OR wages OR jobs OR workers)
+("artificial intelligence" OR "machine learning" OR "deep learning")
+AND (sustainability OR sustainable OR "green transition" OR "energy transition" OR "carbon emissions"
+     OR "climate change" OR "circular economy" OR "green innovation")
 ```
 
-How the 1,147 papers were picked (code: `organisers/build/fetch_openalex.py`):
-
-1. **Seed paper:** Acemoglu & Restrepo (2020), *Robots and Jobs*, its references, and the 400 most-cited papers that cite it.
-2. **The search above**, balanced by period: the 200 most relevant articles cited at least 5 times before 2010, in 2010–2017 and from 2018.
-3. **Classics:** the 150 works most often cited by all of the above.
+with these filters: journal articles in English, published from 2015, cited at least 5 times, in the social sciences (economics, business, management, psychology, social sciences). OpenAlex sorts the hits by relevance; we took the **1,000 most relevant** (code: `organisers/build/fetch_openalex.py`).
 
 **Do it yourself.** The API is a web address, so you can try a search in your browser first:
-[api.openalex.org/works?search=robots wages](https://api.openalex.org/works?search=robots%20wages) returns the first matching papers as JSON.
+[api.openalex.org/works?search=artificial intelligence green transition](https://api.openalex.org/works?search=artificial%20intelligence%20green%20transition) returns the first matching papers as JSON.
 The documentation is at [docs.openalex.org](https://docs.openalex.org) (start with *Works* and *Search*). Without a key, everyone on the same network (a campus Wi-Fi, for example) shares one small free budget of $0.10 a day. A **free API key** from [openalex.org/settings/api](https://openalex.org/settings/api) gives you your own $1 a day, plenty for a sample like this one. Put it in `config.env` as `OPENALEX_API_KEY=`, and notebook 04 builds a sample from your own research question.
 
-We keep the 814 papers that have an abstract.
+We keep the 794 papers that have an abstract.
 
 %% code
-papers = pd.read_csv("../data/openalex/ai_labour.csv")
+papers = pd.read_csv("../data/openalex/ai_sustainability.csv")
 papers = papers[papers.abstract.notna()].reset_index(drop=True)
 print(len(papers), "papers with an abstract,", papers.year.min(), "to", papers.year.max())
 papers[["year", "title", "cited_by_count"]].head()
@@ -137,18 +134,18 @@ Now colour the points by a few simple keywords. **No algorithm yet**: just a sea
 
 %% code
 text = (papers.title + " " + papers.abstract).str.lower()
-topics = {"wage": COLORS[0], "robot": COLORS[1], "artificial intelligence": COLORS[2]}
+topics = {"education": COLORS[0], "carbon": COLORS[1], "circular economy": COLORS[2]}
 fig, ax = plt.subplots(figsize=(7, 5.5))
 ax.scatter(xy[:, 0], xy[:, 1], s=8, color="#d4d1ca", label="other papers")
 for word, colour in topics.items():
     has = text.str.contains(word).to_numpy()
     ax.scatter(xy[has, 0], xy[has, 1], s=10, color=colour, label=f'mentions "{word}" ({has.sum()})')
-ax.set_title("814 papers, placed by their words"); ax.set_xticks([]); ax.set_yticks([])
+ax.set_title(f"{len(papers)} papers, placed by their words"); ax.set_xticks([]); ax.set_yticks([])
 ax.set_xlabel("direction 1"); ax.set_ylabel("direction 2"); ax.legend(loc="best", fontsize=9)
 plt.show()
 
 %% md
-Papers about robots, wages or AI sit in their own regions of the map: **the structure is already in the vectors.** Clustering does not create it; it draws the borders. Where the colours overlap, the borders will be fuzzy (Step 8 comes back to this).
+Papers about education, carbon or the circular economy sit in their own regions of the map: **the structure is already in the vectors.** Clustering does not create it; it draws the borders. Where the colours overlap, the borders will be fuzzy (Step 8 comes back to this).
 
 %% md
 ## Step 4 · Group the papers: k-means
@@ -223,8 +220,8 @@ for j in range(K):
 ## Step 6 · How do the groups develop over time?
 
 %% code
-periods = pd.cut(papers.year, [0, 1999, 2009, 2016, 2020, 2026],
-                 labels=["before 2000", "2000-09", "2010-16", "2017-20", "2021-26"])
+periods = pd.cut(papers.year, [0, 2021, 2023, 2024, 2025, 2026],
+                 labels=["2015-21", "2022-23", "2024", "2025", "2026 (to Nov)"])
 share = pd.crosstab(periods, papers.group, normalize="index")
 ax = share.plot.bar(stacked=True, rot=0, width=0.75, color=COLORS[:K], edgecolor="#fcfcfb", linewidth=1)
 ax.set_title("Share of papers per group, by period"); ax.set_xlabel(""); ax.set_ylabel("share of papers")
@@ -287,7 +284,7 @@ class GroupName(BaseModel):
 class GroupNames(BaseModel):
     groups: list[GroupName]
 
-NAME_INSTR = ("Below are groups of research papers on AI and work, found by clustering their abstracts. "
+NAME_INSTR = ("Below are groups of research papers on AI and sustainability, found by clustering their abstracts. "
               "Name every group. The names must be clearly DIFFERENT from each other: "
               "use the top words and the typical titles, not generic labels.")
 
@@ -319,8 +316,8 @@ print(f"cost: {CUR}{cost:.4f}   (the clustering itself, Steps 1-8: {CUR}0)")
 ## Try it yourself
 
 - Change `K` in Step 4 to 4 or 10 and re-run Steps 4–8. Which groups split, and which merge?
-- Add words to `STOP` (for example *employment*, *workers*) and re-run from Step 1. The groups change: the stop word list is a modelling choice.
-- Use another prepared sample: `green_innovation` or `china_innovation` in the first cell.
+- Add words to `STOP` (for example *green*, *energy*) and re-run from Step 1. The groups change: the stop word list is a modelling choice.
+- Use another prepared sample in the data cell: `ai_labour` (AI and work), `green_innovation` or `china_innovation`. These were built differently (a seed paper and its neighbourhood, see notebook 04), so they also contain older classics.
 
 %% md
 **Notebook 04** builds a full literature review on the same idea: a research question, a search, citations plus word similarity, groups named by an LLM, and a chat with the literature.
