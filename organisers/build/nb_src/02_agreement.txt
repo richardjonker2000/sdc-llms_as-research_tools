@@ -34,12 +34,48 @@ from workshop.llm import PROMPT
 setup_plots()
 status()
 
+%% md
+## The task and the data
+
+**The task.** Give each work task one label, `high`, `medium` or `low` exposure to LLMs, the way economists build occupation-level AI exposure scores. Then ask the question this notebook is about: **would a second coder give the same label?**
+
+**The data.** `data/onet_tasks.csv`: 150 task statements from [O\*NET 31.0](https://www.onetcenter.org/database.html), the US Department of Labor's description of what people do at work, 10 tasks for each of 15 occupations, from paralegals to truck drivers. `data/onet_labels_claude.csv` holds the labels a second model (Claude) gave 100 of them; those 100 are our sample.
+
+**The scale.** O\*NET describes about 1,000 occupations with 18,838 task statements. Exposure scores in published papers are built from all of them.
+
 %% code
 tasks = pd.read_csv("../data/onet_tasks.csv")
 claude = pd.read_csv("../data/onet_labels_claude.csv")
 sample = tasks.merge(claude[["task_id"]], on="task_id")   # the 100 tasks Claude coded
 print(len(sample), "tasks from", sample.occupation_title.nunique(), "occupations")
 sample[["occupation_title", "task"]].head()
+
+%% md
+### A first look
+
+Task statements are short, one sentence each. Which occupations are in the sample, and how are Claude's labels spread?
+
+%% code
+n_words = sample.task.str.split().str.len()
+print(f"task length: median {n_words.median():.0f} words (shortest {n_words.min()}, longest {n_words.max()})\n")
+for occ in ["Paralegals and Legal Assistants", "Heavy and Tractor-Trailer Truck Drivers"]:
+    print(occ.upper())
+    for t in sample[sample.occupation_title == occ].task.head(3):
+        print("  ·", t)
+
+%% code
+labels = sample.merge(claude, on="task_id")
+fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+occ = labels.occupation_title.value_counts().sort_values()
+axes[0].barh(occ.index.str[:32], occ.values, color=COLORS[0], height=0.6)
+axes[0].set_title("Tasks per occupation"); axes[0].grid(axis="y", visible=False)
+lab = labels.label.value_counts().reindex(["high", "medium", "low"])
+axes[1].bar(lab.index, lab.values, color=[COLORS[0], COLORS[3], COLORS[1]], width=0.6)
+axes[1].set_title("Claude's labels"); axes[1].set_ylabel("tasks")
+plt.tight_layout(); plt.show()
+
+%% md
+The labels are not balanced: only 17 of the 100 tasks are `high`, the rest split between `medium` and `low`. That matters in Step 5: when labels are uneven, two coders agree often **by chance**, and kappa corrects for exactly that.
 
 %% md
 ## Step 1 · The rubric, and the exact prompt

@@ -26,10 +26,50 @@ from workshop import *
 setup_plots()
 status()
 
+%% md
+## The task and the data
+
+**The task.** Innovation researchers want to know *which* inventions use AI, *where* they are used and whether they replace or support human work. Patent offices do not record that. It is written, in words, in each patent's abstract. We turn those words into variables.
+
+**The data.** `data/patents.csv`: 151 US patents granted 2014–2023, from [PatentsView](https://patentsview.org) (the US patent office's research data). Each row is one patent: its number, filing year, owner (`assignee`) and country, a technology class (`cpc_subclass`), the title and the **abstract**, a summary of about 120 words. The 151 were picked so that about half are AI-related, so shares in this sample say nothing about all patents.
+
+**The scale.** PatentsView holds about 9 million US patents. We code 100 here; the same code would run on all of them (notebook 01 prints the cost).
+
 %% code
 patents = pd.read_csv("../data/patents.csv")
 print(len(patents), "patents")
 patents[["id", "year", "assignee", "title"]].head()
+
+%% md
+### A first look
+
+Before any LLM: what is in the table? One patent in full, then lengths, years, countries and technology classes.
+
+%% code
+one = patents[patents.id == "US12051275B2"].iloc[0]   # the example on the slides
+print(f"{one.id} · filed {one.year} · {one.assignee} ({one.country}) · class {one.cpc_subclass}\n")
+print(one.title.upper(), "\n")
+print(one.abstract)
+
+%% code
+n_words = patents.abstract.str.split().str.len()
+print(f"abstract length: median {n_words.median():.0f} words, shortest {n_words.min()}, longest {n_words.max()}")
+print(f"all 151 abstracts: {n_words.sum():,} words, about {n_words.sum() * 1.33:,.0f} tokens for the LLM to read")
+
+fig, axes = plt.subplots(1, 2, figsize=(11, 3.6))
+years = patents.year.value_counts().sort_index()
+axes[0].bar(years.index, years.values, color=COLORS[0], width=0.7)
+axes[0].set_title("Patents per filing year"); axes[0].set_ylabel("patents")
+countries = patents.country.value_counts().head(6).sort_values()
+axes[1].barh(countries.index, countries.values, color=COLORS[0], height=0.6)
+axes[1].set_title("Owner's country (top 6)"); axes[1].grid(axis="y", visible=False)
+plt.show()
+
+%% md
+The technology class (CPC) is the patent office's own label. `G06N` means computing based on models such as **machine learning**; `G06F` and `G06T` are general computing and image processing. A class tells you the field, not what the invention *does*: that is why we read the abstract.
+
+%% code
+patents.cpc_subclass.value_counts().head(8)
 
 %% md
 ## Step 1 · Write the codebook

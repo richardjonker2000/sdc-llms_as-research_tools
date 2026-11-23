@@ -6,6 +6,15 @@
 > **What you'll take home:** a map of your topic's research streams, where your own project sits, a reading list per stream ready for Zotero, the papers that bridge streams, a coded literature table, and an interactive map.
 
 %% md
+## The task and the data
+
+**The task.** Get an overview of a research field you are about to enter: its research streams, its classics, how it grew, and where your own project fits. By hand this is weeks of reading; here the structure comes from **who cites whom** and **which words they share**, and the LLM only names, codes and questions what the data shows.
+
+**The data.** Papers from [OpenAlex](https://openalex.org) (about 250 million works, free): for each paper its title, year, journal, authors, countries, abstract and, crucially, its **reference list**. The sample is built from *your* question in Step 0, about 1,000–1,300 papers.
+
+**The scale.** A broad topic has 100,000+ matching papers (Step 0b prints the count for yours). Nobody reads them all; the sample is a neighbourhood of the topic, built on purpose, and Step 0 explains how.
+
+%% md
 ## How this notebook works
 
 You type **your own research topic**. The notebook searches [OpenAlex](https://openalex.org), a free, open database of about 250 million scholarly works, and builds a sample of about 1,000–1,300 papers with titles, abstracts and **reference lists**. The reference lists are what let us draw a map. *How* the sample is built shapes everything you will see, so Step 0 explains it in detail.
@@ -173,6 +182,19 @@ The table above shows where your papers came from (rows) and when they were publ
 | 4. **Backward** | the 150 works most often cited by everything above | the **classics** the field builds on | shown separately as *foundations*, together with the seed's references; they are not used to draw the streams, because widely cited methods works would form fake "streams" |
 
 **Keep in mind:** this is a *neighbourhood* of your topic, not the whole field. Research published as books, in Chinese-language journals, or in journals OpenAlex covers poorly will be under-represented. Papers cited fewer than 5 times are left out of the search on purpose, because many are off-topic.
+
+%% md
+### A first look at one paper
+
+Each row is one paper. Here is the seed. The `references` column, a list of OpenAlex ids, is what lets us draw a citation map.
+
+%% code
+one = seed
+refs = one.references.split() if isinstance(one.references, str) else []
+print(f"{one.year} · {one.venue} · cited {int(one.cited_by_count):,} times · {len(refs)} references\n{one.title}\n")
+print(str(one.abstract)[:700], "...")
+n_refs = papers.references.fillna("").str.split().str.len()
+print(f"\n{(papers.abstract.fillna('') != '').mean():.0%} of papers have an abstract · median {n_refs.median():.0f} references per paper")
 
 %% md
 ## Step 1 · What is in the corpus?

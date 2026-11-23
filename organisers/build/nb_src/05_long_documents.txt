@@ -1,0 +1,266 @@
+%% md
+# 05 · Long documents: is this company doing AI?
+
+> **Old question:** How much AI is in a firm? Annual reports say, but each one is 40,000 to 100,000 words long.
+> **New tool:** turn a few long documents into many short ones: split into paragraphs, filter, let the LLM code each candidate, count per firm and year.
+> **What you'll see:** 12 annual reports (4 firms, 3 years) becoming 7,000 paragraphs, a keyword filter and what it misses, an LLM codebook that separates *doing* AI from *talking about* AI, a firm-year measure, and the same question asked of one whole report at once.
+
+%% md
+## Where this sits
+
+Notebooks 01–04 worked with **many short** texts: abstracts and task statements of 15 to 200 words. Annual reports are **few and long**. The standard move (ClimateBERT, AI-disclosure studies, Hassan et al. on political risk) is to cut them into paragraphs, which turns *few and long* into *many and short*, where the tools from notebook 01 work again:
+
+```
+12 annual reports  →  split  →  7,000 paragraphs  →  filter  →  ~140 candidates  →  LLM codes each  →  count per firm-year
+```
+
+Every arrow is a method decision you report in the paper.
+
+%% code
+import sys, pathlib, re
+sys.path.insert(0, str(pathlib.Path.cwd().parent))
+from typing import Literal
+import pandas as pd
+import matplotlib.pyplot as plt
+from pydantic import BaseModel, Field
+from workshop import *
+
+setup_plots()
+status()
+
+%% md
+## The documents
+
+Annual reports that US-listed companies file with the SEC (form **10-K**), downloaded from [EDGAR](https://www.sec.gov/edgar/search/) and turned into plain text (`organisers/build/fetch_annual_reports.py`). Four firms from four industries, for fiscal years 2019, 2022 and 2025: before ChatGPT (November 2022), around it, and after.
+
+%% code
+reports = pd.read_csv("../data/annual_reports.csv.gz")
+print(f"{len(reports)} reports, {reports.words.sum():,} words in total")
+reports.pivot(index="firm", columns="fiscal_year", values="words").style.format("{:,}")
+
+%% md
+### A first look at one report
+
+An annual report is not one text but a long document with a fixed structure. Here are the first lines of Walmart's report for fiscal 2025, as we stored it (one block per line):
+
+%% code
+lines = reports[(reports.firm == "Walmart") & (reports.fiscal_year == 2025)].text.iloc[0].split("\n")
+print(len(lines), "lines\n")
+for line in lines[12:30]:
+    print("  ", line[:110])
+
+%% md
+The cover page, then the standard **items** every 10-K has. Finding the headings shows where the text is:
+
+%% code
+for i, line in enumerate(lines):
+    if re.match(r"^ITEM\s+\d+[A-C]?\.?\s", line, re.I) and len(line) < 90:
+        print(f"line {i:5d}  {line}")
+
+%% md
+Item 1 (*Business*) and Item 1A (*Risk factors*) are prose, where firms describe what they do and what could go wrong. Item 8 (*Financial statements*) is mostly tables: about half the lines, and almost no sentences about AI. Splitting into paragraphs (Step 1) and dropping short lines removes most of the tables.
+
+%% md
+**How long is long?** A token is about three quarters of an English word. The model's price is per million tokens, so reading everything once costs:
+
+%% code
+tokens = reports.words.sum() * 1.33
+print(f"about {tokens:,.0f} tokens: {CFG['currency']}{tokens * CFG['price_in'] / 1e6:.2f} to read all 12 reports once (input only)")
+print(f"one report: about {reports.words.median() * 1.33:,.0f} tokens")
+
+%% md
+Reading is cheap. The problem is not cost but **checking**: one answer about a 60,000-word report is hard to verify, and models are known to skim the middle of long inputs. Paragraphs are short enough to code reliably and to check one by one.
+
+## Step 1 · Split into paragraphs
+
+The text has one block per line: paragraphs, headings, table rows. We keep lines of at least 25 words, which drops headings, page numbers and most table rows.
+
+%% code
+MIN_WORDS = 25
+paras = (reports.assign(paragraph=reports.text.str.split("\n"))
+         .explode("paragraph")[["firm", "fiscal_year", "paragraph"]])
+paras = paras[paras.paragraph.str.split().str.len() >= MIN_WORDS].reset_index(drop=True)
+paras["position"] = paras.groupby(["firm", "fiscal_year"]).cumcount() / paras.groupby(["firm", "fiscal_year"]).paragraph.transform("size")
+print(f"{len(paras):,} paragraphs, median {paras.paragraph.str.split().str.len().median():.0f} words")
+paras.groupby(["firm", "fiscal_year"]).size().unstack()
+
+%% md
+`position` is how far into its report a paragraph sits (0 = start, 1 = end). We use it in Step 6.
+
+## Step 2 · A cheap filter: a dictionary
+
+Coding all 7,000 paragraphs with the LLM would work (about ¥6), but for 2,000 firms over ten years it would not. The usual first step is a **keyword filter**: only paragraphs that mention something AI-like go to the model. This is the oldest rung of the ladder (a dictionary), used here as a sieve, not as the measure.
+
+%% code
+AI_WORDS = re.compile(r"\bartificial intelligence\b|\bAI\b|machine learning|\bgenerative\b|large language model|\bLLMs?\b|"
+                      r"neural network|deep learning|\bcopilot\b|algorithm|automation|autonomous|data science|predictive analytics",
+                      re.I)
+paras["keyword"] = paras.paragraph.str.contains(AI_WORDS)
+cand = paras[paras.keyword]
+print(f"{len(cand)} of {len(paras):,} paragraphs mention an AI word ({len(cand) / len(paras):.1%})")
+paras.groupby(["firm", "fiscal_year"]).keyword.sum().unstack()
+
+%% md
+A dictionary cannot tell *what* a mention means. Two examples from the candidates:
+
+%% code
+for firm, word in [("Caterpillar", "generative"), ("Caterpillar", "autonomous")]:
+    p = cand[(cand.firm == firm) & cand.paragraph.str.contains(word, case=False)].paragraph.iloc[-1]
+    i = p.lower().find(word)
+    print(f"{firm}, '{word}':\n...{p[max(0, i - 300):i + 200]}...\n")
+
+%% md
+The first sells engines to data centres *because* of AI; the second is self-driving mining equipment, which may or may not count as AI. A keyword count scores both as "AI". Deciding is the job of the codebook.
+
+## Step 3 · The codebook: doing AI or talking about it
+
+A measure of AI from reports measures **disclosure**, not use. The codebook makes that difference explicit: who does what with AI.
+
+%% code
+class AIMention(BaseModel):
+    about_ai: bool = Field(description="True if the paragraph is about artificial intelligence or machine learning, including "
+                                       "generative AI. Plain automation, robotics, software or 'algorithms' with no learning do not count.")
+    stance: Literal["firm uses or builds AI", "firm sells AI products or services", "AI as a risk or regulation",
+                    "AI elsewhere: market, customers, competitors", "not about AI"] = Field(
+        description="What the paragraph says about AI. Choose 'not about AI' if about_ai is false.")
+    evidence_quote: str = Field(description="3 to 15 words copied word for word from the paragraph that support your answer")
+
+INSTRUCTIONS = """You are coding paragraphs from company annual reports (SEC form 10-K) for a study of AI adoption by firms.
+Read the paragraph and fill in every field. Base your answers only on the paragraph."""
+
+%% md
+Test on three paragraphs first, and read the answers.
+
+%% code
+test = extract_many(cand.sample(3, random_state=3), "paragraph", AIMention, INSTRUCTIONS)
+for _, r in test.iterrows():
+    print(f"{r.firm} {r.fiscal_year} · about_ai={r.about_ai} · {r.stance}\n  “{r.evidence_quote}”\n  {r.paragraph[:300]}...\n")
+
+%% md
+## Step 4 · Code every candidate, then count
+
+%% code
+coded = extract_many(cand, "paragraph", AIMention, INSTRUCTIONS)
+ok = coded[coded.error.isna()].copy()
+ok["about_ai"] = ok.about_ai.astype(bool)
+ok["quote_ok"] = [quote_check(q, t) for q, t in zip(ok.evidence_quote, ok.paragraph)]
+print(f"failed rows: {coded.error.notna().sum()} · quotes not found in the paragraph: {(~ok.quote_ok).sum()}")
+print(f"{ok.about_ai.sum()} of {len(ok)} keyword hits are about AI according to the model")
+pd.crosstab(ok.stance, ok.fiscal_year)
+
+%% md
+The keyword filter and the model disagree most on Caterpillar: 13 paragraphs with an AI word, 2 about AI according to the codebook. Most are about "autonomous machine capabilities", which the codebook calls plain automation. Whether self-driving mining trucks *should* count is your decision, not the model's: change the `about_ai` description and the measure changes. Read Caterpillar's rows in `ok` to see the borderline cases.
+
+Now the measure. **Which denominator?** Reports differ in length and grow over time, so a count and a share can tell different stories (Roman's first validity question).
+
+%% code
+per = (ok.groupby(["firm", "fiscal_year"])
+         .agg(ai_paragraphs=("about_ai", "sum"),
+              uses_or_builds=("stance", lambda s: (s == "firm uses or builds AI").sum())))
+per = per.reindex(pd.MultiIndex.from_product([reports.firm.unique(), [2019, 2022, 2025]], names=["firm", "fiscal_year"]), fill_value=0)
+per["paragraphs"] = paras.groupby(["firm", "fiscal_year"]).size()
+per["share_ai"] = per.ai_paragraphs / per.paragraphs
+per
+
+%% code
+firms = list(reports.firm.unique())
+fig, axes = plt.subplots(1, 2, figsize=(11, 4.2), sharex=True)
+for ax, col, title in [(axes[0], "ai_paragraphs", "Paragraphs about AI"),
+                       (axes[1], "uses_or_builds", "…of which: the firm uses or builds AI")]:
+    for i, f in enumerate(firms):
+        s = per.loc[f, col]
+        ax.plot(s.index, s.values, marker="o", lw=2, color=COLORS[i])
+        ax.annotate(f, (s.index[-1], s.values[-1]), xytext=(6, 0), textcoords="offset points", va="center", color=COLORS[i])
+    ax.set_title(title); ax.set_xticks([2019, 2022, 2025]); ax.set_xlim(2018.5, 2027)
+axes[0].set_ylabel("paragraphs in the annual report")
+plt.show()
+
+%% md
+Before 2022 only Microsoft writes about AI. By 2025 Pfizer and Walmart do too, and Microsoft's count more than triples. The paragraphs where the firm itself *uses or builds* AI are a minority everywhere, and Caterpillar stays near zero. Talk or action: which one is your variable is a research decision, and the codebook is where you make it.
+
+## Step 5 · What did the filter miss?
+
+Paragraphs without a keyword never reached the model, so if they talk about AI, the measure misses them. We can estimate how many: code a random sample of the **non-candidates** with the same codebook.
+
+%% code
+rest = paras[~paras.keyword & (paras.fiscal_year == 2025)]
+check = extract_many(rest.sample(60, random_state=1), "paragraph", AIMention, INSTRUCTIONS)
+missed = check[check.about_ai == True]
+rate = len(missed) / check.about_ai.notna().sum()
+print(f"{len(missed)} of 60 non-keyword paragraphs from 2025 are about AI: about {rate * len(rest):.0f} of {len(rest):,} missed")
+missed[["firm", "evidence_quote"]]
+
+%% md
+**Zero is not none.** With 60 checks and no hit, the share missed could still be up to about 3 in 60 (5%, the "rule of three" for a 95% bound): up to roughly 120 of these 2,426 paragraphs. Check more paragraphs to narrow it. If the check does find misses, widen the dictionary or use a semantic filter (embeddings, as in Roman's approach B). Either way, report it: a measure built on a filter is only as complete as the filter.
+
+## Step 6 · The other way: the whole report in one prompt
+
+Long-context models can read a whole report. Ask one question, and insist on verbatim quotes so the answer can be checked. One call, one report.
+
+%% code
+class WholeReport(BaseModel):
+    uses_ai: bool = Field(description="True if the report says the company itself uses or builds AI or machine learning")
+    summary: str = Field(description="Two sentences: what the report says about the company's own use of AI")
+    quotes: list[str] = Field(description="Up to 5 passages of 5 to 25 words, copied word for word from the report, that support your answer")
+
+one = reports[(reports.firm == "Walmart") & (reports.fiscal_year == 2025)].iloc[0]
+WHOLE = """You are reading a whole company annual report (SEC form 10-K) for a study of AI adoption by firms.
+Answer from the report only."""
+whole = extract(one.text, WholeReport, WHOLE)
+print("source:", whole.source, "\n")
+if whole.data:
+    print(whole.data.summary, "\n")
+    for q in whole.data.quotes:
+        print(("found    " if quote_check(q, one.text) else "NOT FOUND"), "·", q)
+
+%% md
+Where in the report do the two methods look? The paragraph method finds AI paragraphs wherever they are; the whole-report answer quotes a few passages. Compare their positions (0 = first page, 1 = last):
+
+%% code
+pos_par = ok[(ok.firm == "Walmart") & (ok.fiscal_year == 2025) & ok.about_ai].position
+text = one.text.lower()
+pos_whole = [text.find(q.lower()[:60]) / len(text) for q in (whole.data.quotes if whole.data else []) if text.find(q.lower()[:60]) >= 0]
+fig, ax = plt.subplots(figsize=(9, 1.8))
+ax.scatter(pos_par, [1] * len(pos_par), color=COLORS[0], s=60, label="paragraph method: AI paragraphs")
+ax.scatter(pos_whole, [0] * len(pos_whole), color=COLORS[1], s=60, label="whole report: quoted passages")
+ax.set_yticks([0, 1], ["whole report", "paragraphs"]); ax.set_ylim(-0.6, 1.6); ax.set_xlim(0, 1)
+ax.set_xlabel("position in the report"); ax.grid(axis="y", visible=False)
+ax.set_title("Walmart, fiscal 2025: where the AI passages are")
+plt.show()
+
+%% md
+Here the whole-report answer quotes two places, both in the first quarter of the report; the paragraph method found six AI paragraphs, up to a third of the way in. Neither found AI in the back half (mostly financial statements). One report proves nothing about skimming, but this is how you would check it.
+
+**Paragraphs or the whole report?**
+
+| | Paragraph by paragraph | Whole report at once |
+| --- | --- | --- |
+| Calls | many, small | one, large |
+| Gives you | a count per firm-year: a variable | an answer and a summary |
+| Checking | every paragraph, one by one | only the quotes |
+| Risk | the filter misses paragraphs (Step 5) | the model skims the middle; a quote may be invented |
+
+## Four validity questions for this measure
+
+| Question (after Roman) | Here |
+| --- | --- |
+| **The denominator:** count, share, or change? | Pfizer's report more than doubled in length after 2019: count and share tell different stories |
+| **Talk versus action:** mentioning AI is not doing AI | `stance` separates *uses or builds* from risk, market and products |
+| **Context:** "we do not use AI", "our competitors…" | The model reads the whole paragraph, a dictionary does not; read the disagreements |
+| **Validate twice** | Paragraphs against your own hand coding (notebook 02's methods); the firm-year measure against something outside the reports: job ads, patents, products |
+
+## What did this cost?
+
+%% code
+u = usage_table()
+fresh = u.tokens_in.sum() - u.cached_in.sum()
+c = (fresh * CFG["price_in"] + u.cached_in.sum() * CFG["price_cached"] + u.tokens_out.sum() * CFG["price_out"]) / 1e6
+print(f"{len(u)} answers: {u.tokens_in.sum():,} tokens in, {u.tokens_out.sum():,} out · cost {CFG['currency']}{c:.3f}")
+
+%% md
+## Try it yourself
+
+- Make the dictionary narrower (only `artificial intelligence|machine learning|\bAI\b|generative`) and re-run Steps 2–5. How many candidates, and how many missed?
+- Lower `MIN_WORDS` to 10: more fragments, more table rows. What happens to the shares?
+- Ask the whole-report question of `Caterpillar` 2025 instead of Walmart.
+- Other firms or years: edit `FIRMS` and `YEARS` in `organisers/build/fetch_annual_reports.py` (needs internet).

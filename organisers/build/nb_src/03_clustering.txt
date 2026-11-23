@@ -50,6 +50,32 @@ print(len(papers), "papers with an abstract,", papers.year.min(), "to", papers.y
 papers[["year", "title", "cited_by_count"]].head()
 
 %% md
+### A first look
+
+**The task.** Without a codebook: find out what this literature is made of, which groups of papers exist and how they grew. **The scale.** 116,335 English articles since 2015 match the same search in OpenAlex; we take the 1,000 most relevant.
+
+Before grouping anything: one abstract, the lengths, the years and the journals.
+
+%% code
+one = papers.sort_values("cited_by_count", ascending=False).iloc[0]
+print(f"{one.year} · {one.venue} · cited {one.cited_by_count} times\n{one.title.upper()}\n\n{one.abstract[:900]} ...")
+
+%% code
+n_words = papers.abstract.str.split().str.len()
+print(f"abstract length: median {n_words.median():.0f} words · citations: median {papers.cited_by_count.median():.0f}, top paper {papers.cited_by_count.max():,}")
+fig, axes = plt.subplots(1, 2, figsize=(11, 3.8))
+per_year = papers.year.value_counts().sort_index()
+axes[0].bar(per_year.index, per_year.values, color=COLORS[0], width=0.7)
+axes[0].set_title("Papers per year"); axes[0].set_ylabel("papers")
+venues = papers.venue.value_counts().head(8).sort_values()
+axes[1].barh(venues.index.str[:38], venues.values, color=COLORS[0], height=0.6)
+axes[1].set_title("Top journals"); axes[1].grid(axis="y", visible=False)
+plt.tight_layout(); plt.show()
+
+%% md
+Most papers are from 2023 onwards (2026 runs only to November), and one journal, *Sustainability*, holds about one in six. Both shape the groups we will find.
+
+%% md
 ## Step 1 · From text to words
 
 We lowercase the text, split it into words, and drop **stop words**: words like "the" or "study" that appear everywhere and say nothing about the topic. The list is a choice you make, and it changes the result.
