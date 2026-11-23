@@ -29,7 +29,7 @@ git clone organisers/demo/demo_prepared.bundle ~/sdc_demo_prepared      # the pr
 | 33–38 | Set `DRY_RUN=1` again. `/extra` LaTeX table (about 3 min). **While it runs**, show the diagram (`t7-diagram`, `outputs/extras/process_diagram.svg`). | `t5-latex`, `t7-diagram` | "The boring parts of a paper are the parts it's best at." |
 | 38–42 | **A second skill** (prepared only: 7 min live). `t6-cluster`: themes of the 151 abstracts; `outputs/extras/themes_report.txt`. | `t6-cluster` | "It reports that the groups are not stable. That honesty is in the skill." |
 | 42–47 | **The catches** (below). | – | "Checking is still your job." |
-| 47–55 | **Write your own skill**: walk through `SKILL_TEMPLATE.md`, fill it in for one example from the room (a codebook coding task for someone's thesis). | – | "If you can write down your method, an agent can follow it." |
+| 47–55 | **Skills to take home.** `lesson2_agentic_coding/skills/README.md`: what a skill is, where to install it (`~/.claude/skills/` works for Claude Code and OpenCode), the 13 skills (analysis, writing, sharing). Open one writing skill (`latex-table` or `edit-paper`). Then **write your own**: `SKILL_TEMPLATE.md`, filled in for one example from the room. | – | "If you can write down your method, an agent can follow it." |
 | 55–60 | `git log --oneline`. **What goes in your methods section:** `PLAN.md` (decisions, who decided, when), the git log (every step), `CLAIMS.md` (every number → script), the skill file. | – | Delegate environments, bugs, plots, formatting. Never delegate the sample, definitions, codebook or claims. Then Roman at 15:15. |
 
 `/revise` used in the prepared run (adapt to the room's votes):

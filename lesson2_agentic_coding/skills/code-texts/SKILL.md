@@ -5,13 +5,13 @@ description: Code texts (abstracts, interview answers, reports) into variables w
 
 # Code texts with an LLM and a codebook
 
-Same method as **lesson 1, notebook 01**: a codebook (a pydantic class) and the text go to the LLM; every answer is validated against the codebook; the evidence quote is checked against the text.
+Same method as **lesson 1, notebook 01**. It uses the workshop's helper module: copy the `workshop/` folder into your project (or ask the agent to write the same steps with your own LLM API). A codebook (a pydantic class) and the text go to the LLM; every answer is validated against the codebook; the evidence quote is checked against the text.
 
 ## Ask first (method: the researcher decides)
 
 Do not start until the plan records these. If one is open, stop and ask.
 
-1. **The codebook.** If the researcher has one (here: `data/codebook.py`, notebook 01's codebook), import it and **never edit it**. Changing a definition or a category is a method decision. If there is none, draft one in `PLAN.md` as a table (variable, type, allowed values, instruction) and ask for approval before coding anything.
+1. **The codebook.** If the researcher has one (e.g. `data/codebook.py`), import it and **never edit it**. Changing a definition or a category is a method decision. If there is none, draft one in `PLAN.md` as a table (variable, type, allowed values, instruction) and ask for approval before coding anything.
 2. **Which rows**, and why those rows (all, a random sample with a seed, only the not-yet-coded ones).
 3. **Live or saved answers.** `config.env` has `DRY_RUN=1`: saved answers replay, anything new is FAKE. Only the researcher switches live calls on, and should know the expected cost first (step 4 below gives it).
 

@@ -39,4 +39,4 @@ description: <One or two sentences: what this skill does and WHEN the agent shou
 - <the shortcuts that would make the results invalid: changing the codebook, dropping awkward rows, re-running until it looks better, ...>
 
 ---
-*How to use it:* save this file as `.opencode/skills/<short-name>/SKILL.md` in your project (OpenCode), or `.claude/skills/<short-name>/SKILL.md` (Claude Code). The agent finds it by the `description` line. The three skills in `agent_harness/.opencode/skills/` (`code-texts`, `check-agreement`, `cluster-texts`) are worked examples.
+*How to use it:* save this file as `.claude/skills/<short-name>/SKILL.md` in your project (read by Claude Code and OpenCode); see `skills/README.md` for the other places. The agent finds it by the `description` line. The skills in `skills/` are worked examples.

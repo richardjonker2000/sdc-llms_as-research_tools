@@ -13,7 +13,7 @@ There is no sandbox. The control comes from OpenCode's permissions and instructi
 | `opencode.json` | Permissions: no web, no edits outside the agent's folders, a bash allowlist; reading `config.env` or the saved answers is denied |
 | `.opencode/agents/` | `planner` (writes only `PLAN.md`, ends with decisions D1, D2, …) and `builder` (one plan step, a report, a commit) |
 | `.opencode/commands/` | `/plan <idea>`, `/revise <answers>`, `/next`, `/extra <job>`, `/explain`, `/status` |
-| `.opencode/skills/` | `code-texts`, `check-agreement`, `cluster-texts`: lesson 1 notebooks 01–03 as skills |
+| `.opencode/skills/` | Filled by `setup.sh` from `../skills/`: the skill library (lesson 1 notebooks 01–03 as skills, plus data, writing and sharing skills) |
 | `data/codebook.py` | Notebook 01's codebook, word for word: the agent imports it and may not change it |
 
 ## The loop
@@ -24,4 +24,4 @@ There is no sandbox. The control comes from OpenCode's permissions and instructi
 
 ## Run it
 
-From the main folder: `./setup.sh`. It copies this folder to `~/sdc_agent_demo` together with `workshop/` and `data/patents.csv`, makes it a git project with its own `.venv` and `DRY_RUN=1`, and writes `start_agent.sh`. Then `cd ~/sdc_agent_demo && ./start_agent.sh`.
+From the main folder: `./setup.sh`. It copies this folder to `~/sdc_agent_demo` together with `workshop/`, `data/patents.csv` and the skills from `../skills/`, makes it a git project with its own `.venv` and `DRY_RUN=1`, and writes `start_agent.sh`. Then `cd ~/sdc_agent_demo && ./start_agent.sh`.

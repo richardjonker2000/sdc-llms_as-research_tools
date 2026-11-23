@@ -43,7 +43,7 @@ PROVIDER=minimax_cn     # in China; gemini works outside China
 API_KEY=your-key-here
 ```
 
-Other providers: `deepseek`, `qwen`, `modelscope` (free daily quota; set `MODEL=` for these three), `minimax_intl`, `ollama`. Your key stays in `config.env` and never appears in a notebook. Never share that file.
+Other providers: `deepseek`, `qwen`, `modelscope` (free daily quota; set `MODEL=` for these three), `minimax_intl`. Your key stays in `config.env` and never appears in a notebook. Never share that file.
 
 **Three modes.** *Live*: new prompts call the API. *Cached*: answers saved in `outputs_cached/` replay instantly, in every mode. *Dry run* (`DRY_RUN=1`): no network; anything not saved gets a clearly marked **fake** answer, so every cell still runs.
 

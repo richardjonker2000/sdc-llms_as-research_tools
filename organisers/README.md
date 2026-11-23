@@ -42,7 +42,7 @@ Providers from China: `minimax_cn` (default), `deepseek`, `qwen`, `modelscope` w
 ## Likely questions
 
 - **Is it reproducible?** Not by default: models change and sampling is random. Cache everything with provider, model and prompt; archive the cache with the paper; report model and date.
-- **Confidential data?** Not with a cloud API unless the data agreement allows it. Local models (`PROVIDER=ollama`, A6) keep data on the machine.
+- **Confidential data?** Not with a cloud API unless the data agreement allows it. A local model (`PROVIDER=ollama`) keeps data on the machine, but is not part of this workshop.
 - **How many to hand-code?** Enough to estimate agreement per category, often 100–300. A model agreeing with another model is not validation (notebook 02).
 - **Which model is best?** It changes monthly. Validate on your own task.
 - **Temperature 0 is not deterministic?** Correct: providers batch requests. Caching freezes one answer.

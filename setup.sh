@@ -7,7 +7,6 @@
 #   ./setup.sh --reset-demo    move an existing demo folder aside (DIR.bak-<time>) and build a fresh one
 #   ./setup.sh --cache-from SRC  copy saved answers + embeddings (outputs_cached/) from a folder, USB stick
 #                              or another machine (rsync syntax, e.g. me@desktop:~/projects/sdc_work/outputs_cached)
-#   ./setup.sh --no-ollama     skip Ollama and the decision model
 #
 # What it does:
 #   1. finds Python 3.10-3.12
@@ -15,9 +14,7 @@
 #   3. config.env from config.example.env; asks for the API key (input hidden, stored only in config.env)
 #   4. OpenCode 1.19.5 into ~/.local/bin (skipped if that version is already on PATH)
 #   5. a copy of lesson2_agentic_coding/agent_harness/ as its own git project with its own .venv, DRY_RUN=1, and start_agent.sh
-#   6. Ollama >= 0.40 (Linux: into ~/.local/ollama, no sudo; macOS: Homebrew), starts it,
-#      pulls the decision model (DECISION_MODEL in config.env, default tev1:0.8b, 833 MB) and tests it
-#   7. outputs_cached/ (with --cache-from), then runs lesson1_text_to_data/00_setup headless: must say "Connection OK"
+#   6. outputs_cached/ (with --cache-from), then runs lesson1_text_to_data/00_setup headless: must say "Connection OK"
 set -euo pipefail
 
 OPENCODE_VERSION=1.19.5
@@ -26,9 +23,6 @@ DEMO_DIR="$HOME/sdc_agent_demo"
 PIP_INDEX=()
 RESET=0
 CACHE_FROM=""
-OLLAMA=1
-OLLAMA_MIN=0.40.0
-OLLAMA_VERSION=0.40.15     # tested; Linux download ~1.5 GB (includes GPU libraries)
 export PIP_DISABLE_PIP_VERSION_CHECK=1
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -36,7 +30,6 @@ while [ $# -gt 0 ]; do
     --demo-dir) DEMO_DIR="$2"; shift ;;
     --reset-demo) RESET=1 ;;
     --cache-from) CACHE_FROM="$2"; shift ;;
-    --no-ollama) OLLAMA=0 ;;
     -h|--help) sed -n '2,23p' "$0"; exit 0 ;;
     *) echo "unknown option: $1"; exit 1 ;;
   esac
@@ -62,7 +55,7 @@ pip_in() {  # pip_in <venv> <pip args...>
 }
 
 # ---------------------------------------------------------------- 1. Python
-say "1/7 Python"
+say "1/6 Python"
 PY=""
 for c in python3.12 python3.11 python3.10 python3 python; do
   if command -v "$c" >/dev/null 2>&1 && "$c" -c 'import sys; sys.exit(not ((3,10) <= sys.version_info[:2] <= (3,12)))' 2>/dev/null; then
@@ -74,13 +67,13 @@ echo "using $PY ($("$PY" --version))"
 command -v git >/dev/null || { echo "Need git (macOS: xcode-select --install)."; exit 1; }
 
 # ---------------------------------------------------------------- 2. notebook environment
-say "2/7 Notebook environment (.venv, a few minutes the first time)"
+say "2/6 Notebook environment (.venv, a few minutes the first time)"
 make_venv "$HERE/.venv"
 pip_in "$HERE/.venv" -r "$HERE/requirements.txt" pytest
 (cd "$HERE" && .venv/bin/python -m pytest -q organisers/tests | tail -1)
 
 # ---------------------------------------------------------------- 3. config.env + key
-say "3/7 config.env"
+say "3/6 config.env"
 CFG="$HERE/config.env"
 [ -f "$CFG" ] || cp "$HERE/config.example.env" "$CFG"
 key_in_cfg() { grep -E '^API_KEY=' "$CFG" | cut -d= -f2- | awk '{print $1}'; }
@@ -107,7 +100,7 @@ else
 fi
 
 # ---------------------------------------------------------------- 4. OpenCode
-say "4/7 OpenCode $OPENCODE_VERSION"
+say "4/6 OpenCode $OPENCODE_VERSION"
 OC="$(command -v opencode || true)"
 if [ -n "$OC" ] && [ "$("$OC" --version 2>/dev/null)" = "$OPENCODE_VERSION" ]; then
   echo "already installed: $OC"
@@ -133,7 +126,7 @@ else
 fi
 
 # ---------------------------------------------------------------- 5. agent demo folder
-say "5/7 Agent demo folder: $DEMO_DIR"
+say "5/6 Agent demo folder: $DEMO_DIR"
 if [ -e "$DEMO_DIR" ]; then
   if [ "$RESET" = 1 ]; then
     BAK="$DEMO_DIR.bak-$(date +%Y%m%d-%H%M%S)"; mv "$DEMO_DIR" "$BAK"; echo "old demo moved to $BAK"
@@ -146,6 +139,9 @@ if [ ! -e "$DEMO_DIR" ]; then
   (cd "$HERE/lesson2_agentic_coding/agent_harness" && tar -cf - --exclude .venv --exclude config.env --exclude __pycache__ .) | (cd "$DEMO_DIR" && tar -xf -)
   # the same helper code and patents as the notebooks
   (cd "$HERE" && tar -cf - --exclude __pycache__ workshop data/patents.csv) | (cd "$DEMO_DIR" && tar -xf -)
+  # the skill library (lesson2_agentic_coding/skills/) where OpenCode finds it
+  mkdir -p "$DEMO_DIR/.opencode/skills"
+  cp -R "$HERE/lesson2_agentic_coding/skills/." "$DEMO_DIR/.opencode/skills/" && rm -f "$DEMO_DIR/.opencode/skills/README.md"
   make_venv "$DEMO_DIR/.venv"
   pip_in "$DEMO_DIR/.venv" -r "$DEMO_DIR/requirements.txt"
   # the demo starts in dry run: fake LLM answers until the researcher goes live
@@ -166,73 +162,12 @@ EOF
     git init -q
     git config user.name "Researcher (workshop)"; git config user.email researcher@workshop.local
     printf '%s\n' start_agent.sh >> .gitignore
-    git add -A && git commit -qm "Starter: data, rules, agents, commands, skill"
+    git add -A && git commit -qm "Starter: data, rules, agents, commands, skills"
     .venv/bin/python -c "import workshop, pandas; print('agent demo: python environment OK')" )
 fi
 
-# ---------------------------------------------------------------- 6. Ollama + decision model
-cfg_val() { grep -E "^$1=" "$CFG" | cut -d= -f2- | awk '{print $1}'; }
-ver_ge() { [ "$(printf '%s\n%s\n' "$1" "$2" | sort -V | head -1)" = "$2" ]; }   # ver_ge A B: A >= B
-OLLAMA_STATUS="skipped (--no-ollama)"
-if [ "$OLLAMA" = 1 ]; then
-  say "6/7 Ollama + decision model (notebook 03)"
-  OURL="$(cfg_val OLLAMA_URL)"; OURL="${OURL:-http://localhost:11434}"
-  DMODEL="$(cfg_val DECISION_MODEL)"; DMODEL="${DMODEL:-tev1:0.8b}"
-  export OLLAMA_HOST="${OURL#http://}"
-  oll_ver() { ollama --version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | tail -1; }
-  if ! command -v ollama >/dev/null 2>&1 || ! ver_ge "$(oll_ver)" "$OLLAMA_MIN"; then
-    command -v ollama >/dev/null 2>&1 && echo "Ollama $(oll_ver) is too old (need $OLLAMA_MIN+; tev1 models fail on 0.35)" || echo "Ollama not found"
-    case "$(uname -s)" in
-      Linux)
-        # No sudo, no apt: unpack the official release into ~/.local/ollama. The release is .tar.zst;
-        # without the zstd tool we decompress with Python's zstandard package (works when apt is broken).
-        case "$(uname -m)" in x86_64) OARCH=amd64 ;; aarch64) OARCH=arm64 ;; *) echo "unsupported CPU $(uname -m)"; exit 1 ;; esac
-        OURL_DL="https://github.com/ollama/ollama/releases/download/v$OLLAMA_VERSION/ollama-linux-$OARCH.tar.zst"
-        # Unpacked it is ~2.4 GB (mostly NVIDIA GPU libraries), plus 833 MB for the model.
-        NEED_MB=3600
-        echo "Installing Ollama $OLLAMA_VERSION into ~/.local/ollama (no sudo; ~1.5 GB download, ~2.4 GB on disk)"
-        rm -rf "$HOME/.local/ollama.new"
-        FREE_MB=$(df -Pm "$HOME" | awk 'NR==2 {print $4}')
-        [ "$FREE_MB" -ge "$NEED_MB" ] || { echo "Only $FREE_MB MB free in $HOME; need about $NEED_MB MB (Ollama + the 833 MB model). Free some space and re-run."; exit 1; }
-        mkdir -p "$HOME/.local/ollama.new" "$HOME/.local/bin"
-        if command -v zstd >/dev/null 2>&1; then UNZST=(zstd -d -c)
-        else pip_in "$HERE/.venv" zstandard
-             UNZST=("$HERE/.venv/bin/python" -c "import sys, zstandard; zstandard.ZstdDecompressor().copy_stream(sys.stdin.buffer, sys.stdout.buffer)"); fi
-        curl -fL --progress-bar "$OURL_DL" | "${UNZST[@]}" | tar -x -C "$HOME/.local/ollama.new"
-        rm -rf "$HOME/.local/ollama"; mv "$HOME/.local/ollama.new" "$HOME/.local/ollama"
-        ln -sf "$HOME/.local/ollama/bin/ollama" "$HOME/.local/bin/ollama"
-        export PATH="$HOME/.local/bin:$PATH" ;;
-      Darwin)
-        if command -v brew >/dev/null 2>&1; then brew install ollama || brew upgrade ollama
-        else echo "Install the Ollama app from https://ollama.com/download (or install Homebrew), then re-run ./setup.sh"; exit 1; fi ;;
-    esac
-    hash -r
-  fi
-  echo "Ollama $(oll_ver)"
-  if ! curl -fs "$OURL/api/version" >/dev/null 2>&1; then
-    echo "starting the Ollama server (log: ~/.ollama_serve.log)"
-    if [ "$(uname -s)" = Darwin ] && command -v brew >/dev/null 2>&1 && brew list ollama >/dev/null 2>&1; then brew services start ollama >/dev/null
-    else nohup ollama serve > "$HOME/.ollama_serve.log" 2>&1 & fi
-    for _ in $(seq 1 20); do curl -fs "$OURL/api/version" >/dev/null 2>&1 && break; sleep 1; done
-  fi
-  curl -fs "$OURL/api/version" >/dev/null 2>&1 || { echo "Ollama server not reachable at $OURL (see ~/.ollama_serve.log)"; exit 1; }
-  SERVER_VER="$(curl -fs "$OURL/api/version" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')"
-  ver_ge "$SERVER_VER" "$OLLAMA_MIN" || { echo "The running Ollama server is $SERVER_VER (too old). Quit/stop it, then re-run ./setup.sh"; exit 1; }
-  if ollama list 2>/dev/null | awk '{print $1}' | grep -qx "$DMODEL"; then echo "$DMODEL already pulled"
-  else echo "pulling $DMODEL (833 MB for tev1:0.8b, once)"; ollama pull "$DMODEL"; fi
-  (cd "$HERE" && .venv/bin/python - <<'EOF'
-import workshop.llm as L
-L.CFG["dry_run"] = False          # test the real local model even when config.env says DRY_RUN=1
-r = L.decide("Write a short summary of a research paper", {"can_do": {"type": "choice",
-    "instructions": "Could a language model do this work task?",
-    "criteria": {"yes": "reading, writing or analysing text", "no": "physical or in-person work"}}}, use_cache=False)
-print("decision model answer:", r)
-EOF
-  ) && OLLAMA_STATUS="ok: Ollama $SERVER_VER, $DMODEL" || { OLLAMA_STATUS="FAILED: see the error above"; warn "decision model test failed"; }
-fi
-
-# ---------------------------------------------------------------- 7. saved answers + notebook check
-say "7/7 Saved answers and notebook check"
+# ---------------------------------------------------------------- 6. saved answers + notebook check
+say "6/6 Saved answers and notebook check"
 if [ -n "$CACHE_FROM" ]; then
   mkdir -p "$HERE/outputs_cached"
   if command -v rsync >/dev/null 2>&1; then rsync -a "${CACHE_FROM%/}/" "$HERE/outputs_cached/"
@@ -261,7 +196,6 @@ fi
 echo "$NB_STATUS"
 
 say "Done"
-echo "Ollama:      $OLLAMA_STATUS"
 echo "Notebook 00: $NB_STATUS"
 cat <<EOF
 Notebooks:   cd "$HERE" && source .venv/bin/activate && jupyter lab     (open lesson1_text_to_data/00_setup.ipynb first)
