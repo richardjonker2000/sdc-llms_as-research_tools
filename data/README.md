@@ -1,6 +1,6 @@
 # Data card
 
-Everything the notebooks read ships in this folder. Nothing is downloaded during the workshop. The scripts in `tools/` show how each public file was built (run once, November 2026).
+Everything the notebooks read ships in this folder. Nothing is downloaded during the workshop. The scripts in `organisers/build/` show how each public file was built (run once, November 2026).
 
 | File | Rows | Columns | Source | Licence | Status |
 | --- | --- | --- | --- | --- | --- |
@@ -14,7 +14,7 @@ Everything the notebooks read ships in this folder. Nothing is downloaded during
 
 ## Provenance: where each file came from
 
-All public data was retrieved on **8 November 2026** with the scripts in `tools/`. Re-running a script gives the same selection only while its upstream source is unchanged; ClinicalTrials.gov in particular updates daily.
+All public data was retrieved on **8 November 2026** with the scripts in `organisers/build/`. Re-running a script gives the same selection only while its upstream source is unchanged; ClinicalTrials.gov in particular updates daily.
 
 ### patents.csv
 - **Retrieved from:** Hugging Face dataset [`zalizedata/us-patents-citation-company-dataset`](https://huggingface.co/datasets/zalizedata/us-patents-citation-company-dataset), config `patents`, split `train` (9,075,421 rows).
@@ -28,7 +28,7 @@ All public data was retrieved on **8 November 2026** with the scripts in `tools/
   - `country` ← `assignee_country`
   - `cpc_subclass` ← `cpc_primary_subclass`
   - `assignee_patentsview_harmonized` ← `first_assignee_group`
-- **Script:** `tools/fetch_patents.py`
+- **Script:** `organisers/build/fetch_patents.py`
 - **Routes tried first that did not work (Nov 2026):**
   - The PatentsView API (`search.patentsview.org`) was unreachable.
   - The PatentsView bulk files on `s3.amazonaws.com/data.patentsview.org` returned 403.
@@ -45,7 +45,7 @@ All public data was retrieved on **8 November 2026** with the scripts in `tools/
   - `occupation_code` ← `O*NET-SOC Code`
   - `occupation_title` ← `Title`
   - `task` ← `Task`
-- **Script:** `tools/build_onet.py path/to/task_statements.csv`
+- **Script:** `organisers/build/build_onet.py path/to/task_statements.csv`
 
 ### trials.csv
 - **Retrieved from:** the ClinicalTrials.gov API v2, <https://clinicaltrials.gov/api/v2/studies>.
@@ -56,7 +56,7 @@ All public data was retrieved on **8 November 2026** with the scripts in `tools/
   - `pageSize=50`
 - **Selection:** the first 2 studies per condition whose eligibility criteria are 1,500–6,000 characters long and mention exclusions.
 - **Fields used:** `NCTId, BriefTitle, LeadSponsorName, Phase, EligibilityCriteria, MinimumAge, MaximumAge`
-- **Script:** `tools/fetch_trials.py`
+- **Script:** `organisers/build/fetch_trials.py`
 
 ### openalex/*.csv (bibliometrics session, draft)
 - **Retrieved from:** the OpenAlex API, <https://api.openalex.org/works>, on 9 November 2026, using a free OpenAlex API key. The whole harvest used $0.03 of the free $1/day budget.
@@ -78,7 +78,7 @@ All public data was retrieved on **8 November 2026** with the scripts in `tools/
   - `abstract` is rebuilt from OpenAlex's word-position index. About 50–85% of works have one; publishers withhold some.
   - `references` lists the OpenAlex IDs of the works each paper cites, space-separated.
   - `countries` and `institutions` come from author affiliations.
-- **Script:** `tools/fetch_openalex.py` (needs `OPENALEX_API_KEY` in `config.env`). Re-running gives somewhat different samples as OpenAlex updates. Data retrieved 9 November 2026.
+- **Script:** `organisers/build/fetch_openalex.py` (needs `OPENALEX_API_KEY` in `config.env`). Re-running gives somewhat different samples as OpenAlex updates. Data retrieved 9 November 2026.
 - **Foundational works (notebook A4):** `<topic>_refs.csv` holds OpenAlex metadata for the 150 works each corpus cites most (co-citation analysis). It is fetched once by notebook A4 and then reused offline.
 - **Embeddings (notebook A4):** AI meaning-vectors for each paper's title and abstract are cached in `outputs_cached/embeddings/<topic>__<model>.npz` (MiniMax `embo-01`, 1,536 dimensions, stored as 16-bit floats, about 3 MB per topic). Without them, or in dry-run mode, notebook A4 falls back to word-based LSA vectors.
 - **Students' own research questions (notebook 04):** the LLM turns a research question into a search query, checks how many articles it finds per period, and refines it (up to 4 rounds). It then picks a seed paper from the 15 most-cited matches. Each sample is saved as `data/openalex/my_<query>.csv`. Hit counts and seed candidates are cached in `outputs_cached/openalex_counts.json` and `openalex_seeds.json`, so a question that has run once replays offline. The five example questions in `workshop/biblio.py` (`EXAMPLES`) are pre-run this way.

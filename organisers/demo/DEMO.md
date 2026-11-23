@@ -8,7 +8,7 @@
 
 ```bash
 ./setup.sh --reset-demo --cache-from <MiniPC>:~/projects/sdc_work/outputs_cached   # fresh ~/sdc_agent_demo, saved answers linked in
-git clone lesson2_agentic_coding/demo/demo_prepared.bundle ~/sdc_demo_prepared      # the prepared run, one git tag per turn
+git clone organisers/demo/demo_prepared.bundle ~/sdc_demo_prepared      # the prepared run, one git tag per turn
 ```
 
 - The saved answers must include the **51 patents the agent codes in S2** (cached on 22 Nov). Then the coding step replays real answers on stage and costs nothing.
@@ -64,6 +64,6 @@ Times per turn in the prepared run (MiniMax M3.1 Flash, 22 Nov): plan 1.9 min, r
 ## If something goes wrong
 
 - **No output after about 60 s:** Ctrl-C, start again, or switch to the prepared tag.
-- **No network or the key fails:** prepared tags plus `transcripts/` cover every step.
+- **No network or the key fails:** prepared tags plus `transcripts.md` cover every step.
 - **A permission dialog pops up:** click deny. That is the rule working; say so.
 - **It asks different decisions than D1–D3:** answer those. The prepared tags still follow the run above.

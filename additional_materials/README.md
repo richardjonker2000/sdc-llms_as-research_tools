@@ -10,5 +10,3 @@ Not taught in the sessions: for after the workshop, or for anyone who finishes e
 | `A4_literature_lenses` | More views on the field map: hidden connections, schools of thought, what is emerging, a one-page memo | 04 |
 | `A5_patent_task_match` | Which work tasks could an AI patent perform? From patents to occupations | 01, 02 |
 | `A6_decision_models` | A small local model (needs Ollama) that answers with probabilities: automate the confident cases, hand-code the rest | 02 |
-
-`prompts_chatbot_track.md` is lesson 1 for any chatbot, without code.

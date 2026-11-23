@@ -76,8 +76,8 @@ command -v git >/dev/null || { echo "Need git (macOS: xcode-select --install).";
 # ---------------------------------------------------------------- 2. notebook environment
 say "2/7 Notebook environment (.venv, a few minutes the first time)"
 make_venv "$HERE/.venv"
-pip_in "$HERE/.venv" -r "$HERE/requirements-dev.txt"
-(cd "$HERE" && .venv/bin/python -m pytest -q tests | tail -1)
+pip_in "$HERE/.venv" -r "$HERE/requirements.txt" pytest
+(cd "$HERE" && .venv/bin/python -m pytest -q organisers/tests | tail -1)
 
 # ---------------------------------------------------------------- 3. config.env + key
 say "3/7 config.env"
@@ -144,6 +144,8 @@ fi
 if [ ! -e "$DEMO_DIR" ]; then
   mkdir -p "$DEMO_DIR"
   (cd "$HERE/lesson2_agentic_coding/agent_harness" && tar -cf - --exclude .venv --exclude config.env --exclude __pycache__ .) | (cd "$DEMO_DIR" && tar -xf -)
+  # the same helper code and patents as the notebooks
+  (cd "$HERE" && tar -cf - --exclude __pycache__ workshop data/patents.csv) | (cd "$DEMO_DIR" && tar -xf -)
   make_venv "$DEMO_DIR/.venv"
   pip_in "$DEMO_DIR/.venv" -r "$DEMO_DIR/requirements.txt"
   # the demo starts in dry run: fake LLM answers until the researcher goes live
@@ -165,7 +167,7 @@ EOF
     git config user.name "Researcher (workshop)"; git config user.email researcher@workshop.local
     printf '%s\n' start_agent.sh >> .gitignore
     git add -A && git commit -qm "Starter: data, rules, agents, commands, skill"
-    .venv/bin/python tools/check_env.py | head -3 )
+    .venv/bin/python -c "import workshop, pandas; print('agent demo: python environment OK')" )
 fi
 
 # ---------------------------------------------------------------- 6. Ollama + decision model
@@ -264,7 +266,7 @@ echo "Notebook 00: $NB_STATUS"
 cat <<EOF
 Notebooks:   cd "$HERE" && source .venv/bin/activate && jupyter lab     (open lesson1_text_to_data/00_setup.ipynb first)
 Agent demo:  cd "$DEMO_DIR" && ./start_agent.sh
-             then type:  /plan  (the research question is in lesson2_agentic_coding/demo/DEMO.md)
+             then type:  /plan  (the research question is in organisers/demo/DEMO.md)
              go live for LLM coding: set DRY_RUN=0 in $DEMO_DIR/config.env
 Fresh demo:  ./setup.sh --reset-demo
 EOF

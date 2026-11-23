@@ -1,6 +1,6 @@
 """Build data/onet_tasks.csv from the O*NET 31.0 Task Statements file (CC BY 4.0).
 
-Run once while preparing:  python tools/build_onet.py path/to/task_statements.csv
+Run once while preparing:  python organisers/build/build_onet.py path/to/task_statements.csv
 Source: https://www.onetcenter.org/dl_files/database/db_31_0_csv/task_statements.csv
 """
 import sys
@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pandas as pd
 
-OUT = Path(__file__).resolve().parent.parent / "data" / "onet_tasks.csv"
+OUT = Path(__file__).resolve().parents[2] / "data" / "onet_tasks.csv"
 OCCUPATIONS = [  # spread from high to low expected LLM exposure
     "43-4051.00",  # Customer Service Representatives
     "43-3031.00",  # Bookkeeping, Accounting, and Auditing Clerks

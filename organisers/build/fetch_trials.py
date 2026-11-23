@@ -9,7 +9,7 @@ from pathlib import Path
 import pandas as pd
 import requests
 
-OUT = Path(__file__).resolve().parent.parent / "data" / "trials.csv"
+OUT = Path(__file__).resolve().parents[2] / "data" / "trials.csv"
 CONDITIONS = ["type 2 diabetes", "depression", "breast cancer", "asthma", "hypertension", "stroke",
               "rheumatoid arthritis", "obesity", "COPD", "migraine", "heart failure", "psoriasis",
               "schizophrenia", "Alzheimer disease", "HIV"]

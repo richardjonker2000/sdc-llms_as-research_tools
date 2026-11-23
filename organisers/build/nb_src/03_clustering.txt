@@ -34,7 +34,7 @@ setup_plots()
 AND ("labor market" OR "labour market" OR employment OR wages OR jobs OR workers)
 ```
 
-How the 1,147 papers were picked (code: `tools/fetch_openalex.py`):
+How the 1,147 papers were picked (code: `organisers/build/fetch_openalex.py`):
 
 1. **Seed paper:** Acemoglu & Restrepo (2020), *Robots and Jobs*, its references, and the 400 most-cited papers that cite it.
 2. **The search above**, balanced by period: the 200 most relevant articles cited at least 5 times before 2010, in 2010–2017 and from 2018.

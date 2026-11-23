@@ -17,7 +17,7 @@ from pathlib import Path
 import pandas as pd
 import requests
 
-OUT = Path(__file__).resolve().parent.parent / "data" / "patents.csv"
+OUT = Path(__file__).resolve().parents[2] / "data" / "patents.csv"
 API = "https://datasets-server.huggingface.co/rows"
 DATASET = "zalizedata/us-patents-citation-company-dataset"
 AI_TERMS = re.compile(r"machine learning|neural network|artificial intelligence|deep learning|"

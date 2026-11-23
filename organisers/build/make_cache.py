@@ -1,7 +1,7 @@
 """Full live run of every notebook, so all answers land in outputs_cached/ for offline replay.
 
 Usage (from the workshop folder, with API_KEY set in config.env and Ollama running):
-    python make_cache.py
+    python organisers/build/make_cache.py
 
 Takes about 25 minutes at RPM=10 (roughly 200 API calls). Safe to re-run: answers already in
 outputs_cached/ are reused, so a second run only fills the gaps. Executed copies of the
@@ -14,7 +14,7 @@ import time
 from collections import Counter
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 from workshop import llm  # noqa: E402
 

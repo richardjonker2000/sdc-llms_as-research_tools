@@ -7,7 +7,6 @@ outputs/*
 !outputs/.gitkeep
 outputs_cached/
 *.zip
-openalex
 *_key
 *.env
 !config.example.env

@@ -2,8 +2,8 @@
 # 00 · Setup check
 
 > **Old question:** Will these tools actually run on *my* laptop?
-> **New tool:** one small helper module (`workshop/llm.py`) that talks to any OpenAI-compatible API, plus a tiny decision model running locally.
-> **What you'll see:** your settings, one chat answer, one set of probabilities, and the words **Connection OK**.
+> **New tool:** one small helper module (`workshop/llm.py`) that talks to any OpenAI-compatible API.
+> **What you'll see:** your settings, one chat answer and the words **Connection OK**.
 
 %% md
 ## How the settings work
@@ -41,25 +41,6 @@ except Exception as e:
     print("❌ Chat call failed. What to fix:\n", e)
     ok["chat"] = False
 
-%% md
-## Step 2 · One decision-model call (local)
-
-A *decision model* is a tiny model (about 800 MB) that runs on your laptop through **Ollama**. It does not write text. You give it a piece of text (the *state*) and a question (the *instructions*) with fixed options (the *criteria*), and it returns a **probability for each option**. We use these models in notebook A6.
-
-%% code
-question = {"exposure": {"type": "choice",
-    "instructions": "How much of this task could a language model do?",
-    "criteria": {
-    "high": "A language model could do most of this task today",
-    "low": "A language model could help with little or none of this task"}}}
-try:
-    answer = decide("Task: Answer routine customer questions by email.", question)
-    print(answer)
-    ok["decide"] = True
-except Exception as e:
-    print("❌ Decision model failed. What to fix:\n", e)
-    ok["decide"] = False
-
 %% code
 if all(ok.values()):
     print("✅ Connection OK" + ("  (dry run: the answers above are fake)" if mode() == "dry run" else ""))
@@ -74,15 +55,13 @@ else:
 | `No API_KEY` | Create `config.env` from `config.example.env` and paste your key. |
 | `401` / `key rejected` | The key does not match the `PROVIDER`. Check both lines. |
 | `Can't reach` | Check Wi-Fi or VPN. Gemini does not work from mainland China, so use `PROVIDER=minimax_cn`. |
-| `Ollama is not running` | Start the Ollama app, then run `ollama pull tev1:0.8b` in a terminal. |
-| `not installed` | Run the `ollama pull ...` command printed in the message, or update Ollama from ollama.com. |
 
 The full list is in the README.
 
 %% md
 ## Try it yourself
 
-Change the prompt below and run the cell. Then ask the decision model a yes/no question: replace `"choice"` with `"noul"`, delete the `criteria`, and write a yes/no question in `instructions`. The answer is the probability of "yes".
+Change the prompt below and run the cell.
 
 %% code
 print(chat("Explain in two sentences what a codebook is in qualitative research."))
