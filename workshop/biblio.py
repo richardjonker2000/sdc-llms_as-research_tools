@@ -429,10 +429,11 @@ def export_html(df: pd.DataFrame, G: nx.Graph, pos: dict, names: dict, path: Pat
     """Write a self-contained interactive map (no internet needed): hover, click, search, filter by cluster."""
     d = df[df["id"].isin(pos)].reset_index(drop=True)
     xs, ys = np.array([pos[i][0] for i in d["id"]]), np.array([pos[i][1] for i in d["id"]])
-    sx = lambda v, lo, hi: 40 + 920 * (v - lo) / ((hi - lo) or 1)  # noqa: E731
+    span = max(np.ptp(xs), np.ptp(ys)) or 1                       # one scale for both axes: the layout keeps its shape
+    sx = lambda v, lo, hi: 500 + 920 * (v - (lo + hi) / 2) / span  # noqa: E731
     index = {pid: i for i, pid in enumerate(d["id"])}
     nodes = [{"x": round(float(sx(x, xs.min(), xs.max())), 1), "y": round(float(sx(y, ys.min(), ys.max())), 1),
-              "r": round(2.5 + 0.35 * math.sqrt(c), 1), "c": int(k), "t": t, "a": a.split(";")[0] + (" et al." if ";" in a else ""),
+              "r": round(min(4 + 0.4 * math.sqrt(c), 20), 1), "c": int(k), "t": t, "a": a.split(";")[0] + (" et al." if ";" in a else ""),
               "y0": int(yr) if pd.notna(yr) else "", "v": v, "n": int(c), "doi": doi, "m": int("mine" in fv or pid in (highlight or []))}
              for pid, x, y, k, t, a, yr, v, c, doi, fv in zip(d["id"], xs, ys, d["cluster"], d["title"], d["authors"], d["year"],
                                                                 d["venue"], d["cited_by_count"], d["doi"], d["found_via"])]
@@ -463,11 +464,11 @@ input{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px
 #info{border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--panel);min-height:120px}
 #info h2{font-size:14px;margin:0 0 6px}#info p{margin:2px 0;color:var(--muted)}#info a{color:#2a78d6}
 #tip{position:fixed;pointer-events:none;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 8px;max-width:320px;font-size:12px;display:none;box-shadow:0 2px 8px #0002}
-circle{stroke:var(--panel);stroke-width:.6}circle.dim{opacity:.12}circle.hit{stroke:var(--ink);stroke-width:2}line{stroke:var(--line);stroke-width:.5}
+circle{stroke:var(--panel);stroke-width:1;vector-effect:non-scaling-stroke;cursor:pointer}circle.dim{opacity:.12}circle.hit{stroke:var(--ink);stroke-width:2.5}circle.sel{stroke:var(--ink);stroke-width:3}line{stroke:var(--line);stroke-width:1;vector-effect:non-scaling-stroke}
 </style></head><body><header><h1>__TITLE__</h1><p>Each dot is a paper; papers that cite the same works sit close together. Colour = research stream, size = citations.
-Hover for details, click a dot to pin it, scroll to zoom, drag to pan.</p></header>
+Hover for details, click a dot to see the paper, scroll to zoom, drag to pan, double-click to reset.</p></header>
 <div class="wrap"><svg id="map" viewBox="0 0 1000 1000"><g id="g"></g></svg><aside>
-<input id="q" placeholder="Search titles (e.g. robots, wages)…" aria-label="Search titles"><div class="leg" id="leg"></div>
+<input id="q" placeholder="Search titles (e.g. spillover, China)…" aria-label="Search titles"><div class="leg" id="leg"></div>
 <div id="info"><p>Click a paper to see its details.</p></div></aside></div><div id="tip"></div>
 <script>
 const D=__DATA__,ns="http://www.w3.org/2000/svg",g=document.getElementById("g"),svg=document.getElementById("map");
@@ -481,7 +482,7 @@ const circles=D.nodes.map((n,i)=>{const c=document.createElementNS(ns,"circle");
  c.onmousemove=e=>{tip.style.display="block";tip.style.left=(e.clientX+12)+"px";tip.style.top=(e.clientY+12)+"px";
   tip.innerHTML="<b>"+esc(n.t)+"</b><br>"+esc(n.a)+" ("+n.y0+") · "+n.n+" citations"};
  c.onmouseleave=()=>tip.style.display="none";
- c.onclick=()=>{const L=D.legend.find(l=>l.c===n.c);info.innerHTML="<h2>"+esc(n.t)+"</h2><p>"+esc(n.a)+", "+n.y0+"</p><p>"+esc(n.v)+"</p><p>"+n.n+
+ c.onclick=()=>{circles.forEach(x=>x.classList.remove("sel"));c.classList.add("sel");const L=D.legend.find(l=>l.c===n.c);info.innerHTML="<h2>"+esc(n.t)+"</h2><p>"+esc(n.a)+", "+n.y0+"</p><p>"+esc(n.v)+"</p><p>"+n.n+
   " citations · "+esc(L?L.name:"")+"</p>"+(n.doi?"<p><a target=_blank rel=noopener href='https://doi.org/"+esc(n.doi)+"'>Open DOI</a></p>":"")};
  g.appendChild(c);return c});
 const leg=document.getElementById("leg");D.legend.forEach(l=>{const b=document.createElement("button");
@@ -490,13 +491,19 @@ const leg=document.getElementById("leg");D.legend.forEach(l=>{const b=document.c
 const q=document.getElementById("q");q.oninput=paint;
 function paint(){const s=q.value.trim().toLowerCase();D.nodes.forEach((n,i)=>{const c=circles[i];
  c.classList.toggle("dim",off.has(n.c)||(s&&!n.t.toLowerCase().includes(s)));c.classList.toggle("hit",!!n.m||(!!s&&n.t.toLowerCase().includes(s)))})}
-let vb=[0,0,1000,1000],drag=null;const setVB=()=>svg.setAttribute("viewBox",vb.join(" "));
+let vb=[0,0,1000,1000],drag=null,moved=false;const setVB=()=>svg.setAttribute("viewBox",vb.join(" "));
+function fit(){const r=svg.getBoundingClientRect(),a=(r.width||1)/(r.height||1);
+ vb=a>1?[500-500*a,0,1000*a,1000]:[0,500-500/a,1000,1000/a];setVB()}
+fit();addEventListener("resize",fit);svg.ondblclick=fit;
 svg.addEventListener("wheel",e=>{e.preventDefault();const f=e.deltaY>0?1.15:1/1.15,r=svg.getBoundingClientRect(),
  mx=vb[0]+vb[2]*(e.clientX-r.left)/r.width,my=vb[1]+vb[3]*(e.clientY-r.top)/r.height;
  vb=[mx-(mx-vb[0])*f,my-(my-vb[1])*f,vb[2]*f,vb[3]*f];setVB()},{passive:false});
-svg.onpointerdown=e=>{drag=[e.clientX,e.clientY];svg.setPointerCapture(e.pointerId)};
-svg.onpointermove=e=>{if(!drag)return;const r=svg.getBoundingClientRect();vb[0]-=(e.clientX-drag[0])*vb[2]/r.width;
- vb[1]-=(e.clientY-drag[1])*vb[3]/r.height;drag=[e.clientX,e.clientY];setVB()};svg.onpointerup=()=>drag=null;
+svg.onpointerdown=e=>{drag=[e.clientX,e.clientY];moved=false};
+svg.onpointermove=e=>{if(!drag)return;
+ if(!moved){if(Math.hypot(e.clientX-drag[0],e.clientY-drag[1])<4)return;moved=true;svg.setPointerCapture(e.pointerId);tip.style.display="none"}
+ const r=svg.getBoundingClientRect();vb[0]-=(e.clientX-drag[0])*vb[2]/r.width;
+ vb[1]-=(e.clientY-drag[1])*vb[3]/r.height;drag=[e.clientX,e.clientY];setVB()};
+svg.onpointerup=svg.onpointercancel=()=>drag=null;
 </script></body></html>"""
 
 
