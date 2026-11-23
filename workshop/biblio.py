@@ -781,8 +781,6 @@ EXAMPLES = {
                       "depend on their absorptive capacity? I'm especially interested in China.",
     "green_subsidies": "Do government subsidies for green innovation lead to more and better environmental patents "
                        "in Chinese firms?",
-    "robots_china": "How does the adoption of industrial robots affect the wages and tasks of low-skilled workers "
-                    "in Chinese manufacturing firms?",
     "ai_danish_firms": "Do firms that adopt artificial intelligence hire more or fewer workers, and which occupations "
                        "are affected? Evidence from Danish register data.",
 }

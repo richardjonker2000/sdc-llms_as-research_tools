@@ -45,7 +45,6 @@ Change the line below to another example, or to your own question in quotes. The
 | --- | --- |
 | `EXAMPLES["fdi_spillovers"]` | Does foreign direct investment lead to technology spillovers to domestic firms, and does this depend on their absorptive capacity? I'm especially interested in China. |
 | `EXAMPLES["green_subsidies"]` | Do government subsidies for green innovation lead to more and better environmental patents in Chinese firms? |
-| `EXAMPLES["robots_china"]` | How does the adoption of industrial robots affect the wages and tasks of low-skilled workers in Chinese manufacturing firms? |
 | `EXAMPLES["ai_danish_firms"]` | Do firms that adopt AI hire more or fewer workers, and which occupations are affected? Evidence from Danish register data. |
 
 %% code
