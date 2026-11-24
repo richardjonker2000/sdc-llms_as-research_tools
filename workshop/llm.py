@@ -26,7 +26,7 @@ from tqdm import tqdm
 
 ROOT = Path(__file__).resolve().parent.parent
 CACHE_DIR = ROOT / "outputs_cached"
-KEYS = ["PROVIDER", "API_KEY", "MODEL", "BASE_URL", "RPM", "DRY_RUN", "OLLAMA_URL", "DECISION_MODEL", "REASONING", "OPENALEX_API_KEY", "WORKERS", "PRICE_IN", "PRICE_OUT", "CURRENCY"]
+KEYS = ["PROVIDER", "API_KEY", "MODEL", "BASE_URL", "RPM", "DRY_RUN", "OLLAMA_URL", "DECISION_MODEL", "REASONING", "OPENALEX_API_KEY", "WORKERS", "PRICE_IN", "PRICE_OUT", "CURRENCY", "CACHE_DIR"]
 PROVIDERS = {  # name: (base_url, default model)
     "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai/", "gemini-3.5-flash-lite"),  # Nov 2026: -latest alias hung; full Flash free tier = 20 requests/day
     "minimax_intl": ("https://api.minimax.io/v1", "MiniMax-M3"),
@@ -50,6 +50,7 @@ class SetupError(RuntimeError):
 # ---------------------------------------------------------------- config
 def load_config(env_file: Path | None = None) -> dict[str, Any]:
     """Read config.env (environment variables win) into CFG."""
+    global CACHE_DIR
     file_vals = dotenv_values(env_file or ROOT / "config.env")
     v = {k: (os.environ.get(k) or file_vals.get(k) or "").strip() for k in KEYS}
     provider = (v["PROVIDER"] or "gemini").lower()
@@ -75,6 +76,8 @@ def load_config(env_file: Path | None = None) -> dict[str, Any]:
     CFG["price_out"] = float(v["PRICE_OUT"]) if v["PRICE_OUT"] else price[1]
     CFG["price_cached"] = price[2] if not v["PRICE_IN"] else CFG["price_in"]   # own price given: no cache discount
     CFG["currency"] = v["CURRENCY"] or price[3]
+    if v["CACHE_DIR"]:   # e.g. one shared folder on a workshop server; default: outputs_cached/ in the workshop folder
+        CACHE_DIR = Path(v["CACHE_DIR"]).expanduser()
     return CFG
 
 
@@ -95,8 +98,11 @@ def _cache_get(key: str) -> dict | None:
 
 
 def _cache_put(key: str, record: dict) -> None:
-    CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    (CACHE_DIR / f"{key}.json").write_text(json.dumps(record, ensure_ascii=False, indent=1), encoding="utf-8")
+    try:
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        (CACHE_DIR / f"{key}.json").write_text(json.dumps(record, ensure_ascii=False, indent=1), encoding="utf-8")
+    except OSError as e:   # a read-only or shared cache: the answer is still returned, just not saved
+        print(f"(answer not saved to {CACHE_DIR}: {e.strerror})")
 
 
 _recent_calls: list[float] = []
@@ -573,7 +579,7 @@ def status() -> None:
     print(f"API key  : {'set' if c['api_key'] else 'missing'}")
     print(f"Mode     : {mode().upper()}: {explain}")
     print(f"Decision : {c['decision_model']} @ {c['ollama_url']}: {dm}")
-    print(f"Cache    : {len(list(CACHE_DIR.glob('*.json')))} saved answers in outputs_cached/")
+    print(f"Cache    : {len(list(CACHE_DIR.glob('*.json')))} saved answers in {CACHE_DIR if CACHE_DIR != ROOT / 'outputs_cached' else 'outputs_cached/'}")
     if c["price_in"] is not None:
         print(f"Price    : {c['currency']}{c['price_in']:.2f} per million tokens in ({c['currency']}{c['price_cached']:.2f} if cached), "
               f"{c['currency']}{c['price_out']:.2f} out: every cell prints what its answers cost")
