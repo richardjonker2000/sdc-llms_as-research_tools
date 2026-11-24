@@ -10,7 +10,7 @@ import nbformat
 
 SRC = Path(__file__).parent / "nb_src"
 ROOT = Path(__file__).resolve().parents[2]
-OUT = ROOT / "lesson1_text_to_data"          # 00-04: taught in lesson 1
+OUT = ROOT / "lesson1_text_to_data"          # 01-05: taught in lesson 1
 OUT_EXTRA = ROOT / "additional_materials"    # A1-A6: not taught, for later
 
 # optional: names to build, e.g. python organisers/build/build_notebooks.py 02 A1 (default: all)

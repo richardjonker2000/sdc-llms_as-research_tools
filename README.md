@@ -10,7 +10,7 @@ Two hands-on lessons. No coding experience needed.
 | 14:00–15:00 | **2 · Agentic coding:** a coding agent, and skill files that turn your notebook into instructions | `lesson2_agentic_coding/` |
 
 ```
-lesson1_text_to_data/     the lesson 1 notebooks (start with 00_setup)
+lesson1_text_to_data/     the lesson 1 notebooks (start with 01)
 lesson2_agentic_coding/   the agent project, its skills, and a template for your own skill
 additional_materials/     more notebooks for after the workshop, starting with A1 · your own data
 data/                     all datasets (sources and licences in data/README.md)
@@ -21,7 +21,7 @@ organisers/               not needed by participants
 
 ## Install (on your own laptop)
 
-On the workshop's Jupyter server everything is ready: open `lesson1_text_to_data/00_setup.ipynb`.
+On the workshop's Jupyter server everything is ready: open `lesson1_text_to_data/01_codebook_extraction.ipynb`.
 
 On your own laptop you need **Python 3.10–3.12**. In a terminal, in this folder:
 
@@ -47,7 +47,7 @@ Other providers: `deepseek`, `qwen`, `modelscope` (free daily quota; set `MODEL=
 
 **Three modes.** *Live*: new prompts call the API. *Cached*: answers saved in `outputs_cached/` replay instantly, in every mode. *Dry run* (`DRY_RUN=1`): no network; anything not saved gets a clearly marked **fake** answer, so every cell still runs.
 
-Then run `lesson1_text_to_data/00_setup.ipynb`. It should say **Connection OK**.
+Then open `lesson1_text_to_data/01_codebook_extraction.ipynb` and run the first code cell: it prints your settings and mode.
 
 ## Troubleshooting
 

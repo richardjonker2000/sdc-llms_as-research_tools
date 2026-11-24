@@ -229,15 +229,38 @@ print(f"cost: {CUR}{cost:.4f}   per answer: {CUR}{cost / max(len(u), 1):.5f}   f
 %% md
 ## Try it yourself
 
-Add a field to the codebook and re-run Steps 1–3. For example, add this line inside `PatentCode`:
+Everything you need is copied below, so you don't have to scroll back up: the codebook, the instructions, the run and the check. Edit here and run the three cells in order. The original `PatentCode` above stays as it was.
 
-```python
-uses_personal_data: bool = Field(description="True if the invention processes data about individual people")
-```
-
-Or change the list of domains. New fields mean new prompts, so these rows will be live API calls (or fake answers in dry-run mode).
+The copy already has one new field, marked `# NEW`. Other things to try: change the list of domains, sharpen a description, or rewrite `MY_INSTRUCTIONS`. Every change makes a new prompt, so these rows are live API calls (or fake answers in dry-run mode).
 
 %% code
-# Your turn: edit PatentCode above, run it again, then run this cell
-codes2 = extract_many(sample.head(5), "abstract", PatentCode, INSTRUCTIONS, prompt=TEMPLATE, retry=RETRY)
-codes2.drop(columns=["abstract", "claims"], errors="ignore").head()
+# 1 · Your codebook: a copy of PatentCode with one new field
+MyDomain = Literal["health", "finance", "manufacturing", "transport", "energy",
+                   "retail & consumer", "ICT & telecom", "other"]
+
+class MyCode(BaseModel):
+    is_ai: bool = Field(description="True if the invention uses or improves artificial intelligence or machine learning")
+    technology: str = Field(description="The core technology in 2 to 5 words")
+    problem_solved: str = Field(description="The problem the invention solves, in one short sentence")
+    application_domain: MyDomain = Field(description="The main sector where the invention is used")
+    automation_vs_augmentation: Literal["automates human work", "augments human work", "neither"]
+    uses_personal_data: bool = Field(description="True if the invention processes data about individual people")   # NEW
+    evidence_quote: str = Field(description="A phrase of 3 to 12 words copied word for word from the abstract that best supports your is_ai answer. Never empty.")
+
+MY_INSTRUCTIONS = """You are a research assistant coding patent abstracts for an innovation study.
+Read the patent abstract and fill in every field of the codebook. Base your answers only on the text."""
+
+%% code
+# 2 · Code 5 abstracts with your codebook
+mine = extract_many(sample.head(5), "abstract", MyCode, MY_INSTRUCTIONS, prompt=TEMPLATE, retry=RETRY)
+mine_ok = mine[mine["error"].isna()]
+mine_ok[["title", "is_ai", "uses_personal_data", "technology", "evidence_quote"]]
+
+%% code
+# 3 · Check the quotes, and compare with the original codebook on the same 5
+mine_ok = mine_ok.assign(quote_ok=[quote_check(q, t) for q, t in zip(mine_ok["evidence_quote"], mine_ok["abstract"])])
+before = ok.set_index("id")["is_ai"]
+mine_ok.assign(is_ai_before=mine_ok["id"].map(before))[["title", "is_ai_before", "is_ai", "quote_ok"]]
+
+%% md
+Did adding a field change the other answers? Compare `is_ai_before` with `is_ai`: the codebook is part of the prompt, so a new field can shift answers to the old ones too. When it works on 5, change `.head(5)` to `.head(20)` and read the results before going further.

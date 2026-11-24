@@ -14,7 +14,7 @@
 #   3. config.env from config.example.env; asks for the API key (input hidden, stored only in config.env)
 #   4. OpenCode 1.19.5 into ~/.local/bin (skipped if that version is already on PATH)
 #   5. a copy of lesson2_agentic_coding/agent_harness/ as its own git project with its own .venv, DRY_RUN=1, and start_agent.sh
-#   6. outputs_cached/ (with --cache-from), then runs lesson1_text_to_data/00_setup headless: must say "Connection OK"
+#   6. outputs_cached/ (with --cache-from), then a connection check: must say "Connection OK"
 set -euo pipefail
 
 OPENCODE_VERSION=1.19.5
@@ -176,29 +176,21 @@ fi
 NCACHE=$(find "$HERE/outputs_cached" -name '*.json' 2>/dev/null | wc -l | tr -d ' ')
 if [ "$NCACHE" -gt 0 ]; then echo "outputs_cached/: $NCACHE saved answers"
 else warn "outputs_cached/ is empty: notebooks will call the API for every answer (about 200 calls). Get it with --cache-from <path>"; fi
-NB_OUT="$(mktemp -d)"
-if (cd "$HERE/lesson1_text_to_data" && ../.venv/bin/jupyter nbconvert --to notebook --execute 00_setup.ipynb --output-dir "$NB_OUT" \
-      --ExecutePreprocessor.timeout=300 >"$NB_OUT/log.txt" 2>&1); then
-  # look only at what the cells printed (the source code contains the words too)
-  NB_STATUS="$("$HERE/.venv/bin/python" - "$NB_OUT/00_setup.ipynb" <<'EOF'
-import json, sys
-out = "".join("".join(o.get("text", "")) for c in json.load(open(sys.argv[1], encoding="utf-8"))["cells"]
-              if c["cell_type"] == "code" for o in c.get("outputs", []))
-if "Connection OK" not in out:
-    print("FAILED: 00_setup did not reach Connection OK; open it in Jupyter to see the red items")
-else:
-    print("ok: 00_setup says Connection OK" + (" (DRY RUN: chat answers are fake; set API_KEY and DRY_RUN=0 for live)" if "dry run" in out.split("Connection OK")[1][:60] else " (live)"))
-EOF
-)"
-else
-  NB_STATUS="FAILED: notebook 00 crashed (log: $NB_OUT/log.txt)"
-fi
+# connection check: settings, then one chat call (prints "Connection OK")
+if NB_STATUS="$(cd "$HERE" && .venv/bin/python - 2>&1 <<'PYCHECK'
+from workshop import *
+status()
+chat("Say hello in one short sentence.")
+print("ok: Connection OK" + (" (DRY RUN: chat answers are fake; set API_KEY and DRY_RUN=0 for live)" if mode() == "dry run" else " (live)"))
+PYCHECK
+)"; then NB_STATUS="$(echo "$NB_STATUS" | tail -1)"
+else NB_STATUS="FAILED: connection check: $(echo "$NB_STATUS" | tail -3)"; fi
 echo "$NB_STATUS"
 
 say "Done"
-echo "Notebook 00: $NB_STATUS"
+echo "Connection: $NB_STATUS"
 cat <<EOF
-Notebooks:   cd "$HERE" && source .venv/bin/activate && jupyter lab     (open lesson1_text_to_data/00_setup.ipynb first)
+Notebooks:   cd "$HERE" && source .venv/bin/activate && jupyter lab     (start with lesson1_text_to_data/01_codebook_extraction.ipynb)
 Agent demo:  cd "$DEMO_DIR" && ./start_agent.sh
              then type:  /plan  (the research question is in organisers/demo/DEMO.md)
              go live for LLM coding: set DRY_RUN=0 in $DEMO_DIR/config.env
