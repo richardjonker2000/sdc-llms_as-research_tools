@@ -13,7 +13,7 @@
 #   2. .venv in this folder with requirements.txt (the notebooks)
 #   3. config.env from config.example.env; asks for the API key (input hidden, stored only in config.env)
 #   4. OpenCode 1.19.5 into ~/.local/bin (skipped if that version is already on PATH)
-#   5. a copy of lesson2_agentic_coding/agent_harness/ as its own git project with its own .venv, DRY_RUN=1, and start_agent.sh
+#   5. a copy of lesson2_agentic_coding/agent_harness/ plus the lesson 1 notebooks, as its own git project with its own .venv, DRY_RUN=1, and start_agent.sh
 #   6. outputs_cached/ (with --cache-from), then a connection check: must say "Connection OK"
 set -euo pipefail
 
@@ -137,11 +137,12 @@ fi
 if [ ! -e "$DEMO_DIR" ]; then
   mkdir -p "$DEMO_DIR"
   (cd "$HERE/lesson2_agentic_coding/agent_harness" && tar -cf - --exclude .venv --exclude config.env --exclude __pycache__ .) | (cd "$DEMO_DIR" && tar -xf -)
-  # the same helper code and patents as the notebooks
-  (cd "$HERE" && tar -cf - --exclude __pycache__ workshop data/patents.csv) | (cd "$DEMO_DIR" && tar -xf -)
-  # the skill library (lesson2_agentic_coding/skills/) where OpenCode finds it
+  # the lesson 1 notebooks with their helper code and data, as the agent's material
+  (cd "$HERE" && tar -cf - --exclude __pycache__ --exclude .ipynb_checkpoints workshop data lesson1_text_to_data) | (cd "$DEMO_DIR" && tar -xf -)
+  mkdir -p "$DEMO_DIR/edits" "$DEMO_DIR/outputs"
+  # the one skill (lesson2_agentic_coding/skills/notebook) where OpenCode finds it
   mkdir -p "$DEMO_DIR/.opencode/skills"
-  cp -R "$HERE/lesson2_agentic_coding/skills/." "$DEMO_DIR/.opencode/skills/" && rm -f "$DEMO_DIR/.opencode/skills/README.md"
+  cp -R "$HERE/lesson2_agentic_coding/skills/." "$DEMO_DIR/.opencode/skills/"
   make_venv "$DEMO_DIR/.venv"
   pip_in "$DEMO_DIR/.venv" -r "$DEMO_DIR/requirements.txt"
   # the demo starts in dry run: fake LLM answers until the researcher goes live
@@ -162,8 +163,8 @@ EOF
     git init -q
     git config user.name "Researcher (workshop)"; git config user.email researcher@workshop.local
     printf '%s\n' start_agent.sh >> .gitignore
-    git add -A && git commit -qm "Starter: data, rules, agents, commands, skills"
-    .venv/bin/python -c "import workshop, pandas; print('agent demo: python environment OK')" )
+    git add -A && git commit -qm "Starter: notebooks, data, rules, the notebook skill"
+    .venv/bin/python -c "import workshop, pandas, nbclient; print('agent demo: python environment OK')" )
 fi
 
 # ---------------------------------------------------------------- 6. saved answers + notebook check
@@ -192,7 +193,7 @@ echo "Connection: $NB_STATUS"
 cat <<EOF
 Notebooks:   cd "$HERE" && source .venv/bin/activate && jupyter lab     (start with lesson1_text_to_data/01_codebook_extraction.ipynb)
 Agent demo:  cd "$DEMO_DIR" && ./start_agent.sh
-             then type:  /plan  (the research question is in organisers/demo/DEMO.md)
+             then type, e.g.:  in notebook 01, add a field is_medical to the codebook and run it
              go live for LLM coding: set DRY_RUN=0 in $DEMO_DIR/config.env
 Fresh demo:  ./setup.sh --reset-demo
 EOF

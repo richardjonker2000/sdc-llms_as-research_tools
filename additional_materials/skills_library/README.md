@@ -1,4 +1,8 @@
-# Skills: what they are and how to use them
+# Skill library: 13 research skills to take home
+
+These were written for the workshop but are not used in the session (the session uses one skill, `lesson2_agentic_coding/skills/notebook`). Install the ones you want after the workshop.
+
+## What a skill is
 
 A **skill** is a folder with one file, `SKILL.md`: a short description (when to use it) and instructions (how to do the task, which checks to report, what never to do). It is your method, written down so a coding agent follows it the same way every time.
 
@@ -71,4 +75,4 @@ All follow the same pattern: **ask the researcher first, then do the work, then 
 
 ## Write your own
 
-Start from `../SKILL_TEMPLATE.md`. A good skill comes from something you have done by hand at least once, for example a notebook that works. Write down the decisions you made (*Ask first*), the steps, and how you knew the result was right (*Required checks*).
+Start from `lesson2_agentic_coding/SKILL_TEMPLATE.md`. A good skill comes from something you have done by hand at least once, for example a notebook that works. Write down the decisions you made (*Ask first*), the steps, and how you knew the result was right (*Required checks*).

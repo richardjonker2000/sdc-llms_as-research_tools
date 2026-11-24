@@ -1,27 +1,23 @@
-# Agent harness: the agent owns the code, the researcher owns the method
+# Agent harness: point a coding agent at a notebook
 
-A starter project for a coding agent ([OpenCode](https://opencode.ai)) on a real dataset: 151 USPTO patents, notebook 01's LLM codes for 100 of them, and the codebook that made them.
-
-- **The agent** fixes code problems on its own: environments, bugs, plots, formatting.
-- **The researcher** decides every method choice: sample, definitions, codebook, LLM use, statistics.
-
-There is no sandbox. The control comes from OpenCode's permissions and instructions:
+A small project for a coding agent ([OpenCode](https://opencode.ai)): the lesson 1 notebooks, one skill, and rules. You point the agent at a notebook and ask for a change in plain words; it changes the cell, runs the notebook, checks the output, commits, and reports.
 
 | File | What it does |
 | --- | --- |
-| `AGENTS.md` | Roles, the code-vs-method split, the workflow, the `PLAN.md` template, the report format, hard rules |
-| `opencode.json` | Permissions: no web, no edits outside the agent's folders, a bash allowlist; reading `config.env` or the saved answers is denied |
-| `.opencode/agents/` | `planner` (writes only `PLAN.md`, ends with decisions D1, D2, …) and `builder` (one plan step, a report, a commit) |
-| `.opencode/commands/` | `/plan <idea>`, `/revise <answers>`, `/next`, `/extra <job>`, `/explain`, `/status` |
-| `.opencode/skills/` | Filled by `setup.sh` from `../skills/`: the skill library (lesson 1 notebooks 01–03 as skills, plus data, writing and sharing skills) |
-| `data/codebook.py` | Notebook 01's codebook, word for word: the agent imports it and may not change it |
+| `AGENTS.md` | The rules: the agent does the code, you decide the method; one change per request; fake answers are never results |
+| `opencode.json` | Permissions: no web, edits only in `edits/` and `outputs/`, a short list of allowed commands; `config.env`, `workshop/` and the saved answers are blocked |
+| `.opencode/skills/notebook/` | The one skill: how to show, change and run a notebook, check it, and report (filled by `setup.sh` from `../skills/`) |
 
-## The loop
+## Try
 
-1. `/plan My research idea ...` → `PLAN.md` with open decisions.
-2. `/revise D1: a, D2: ...` → repeat until happy.
-3. `/next` → one step, a short report ("Please check: ..."), and a git commit. Repeat.
+```
+in notebook 01, add a field is_medical to the codebook and run it
+in notebook 03, try 4 groups instead of 6 and tell me what changed
+in notebook 02, explain the kappa cell in plain words
+```
+
+Then open the notebook in Jupyter: the changed cell and its new output are there, and `git log` shows each change.
 
 ## Run it
 
-From the main folder: `./setup.sh`. It copies this folder to `~/sdc_agent_demo` together with `workshop/`, `data/patents.csv` and the skills from `../skills/`, makes it a git project with its own `.venv` and `DRY_RUN=1`, and writes `start_agent.sh`. Then `cd ~/sdc_agent_demo && ./start_agent.sh`.
+From the main folder: `./setup.sh`. It copies this folder to `~/sdc_agent_demo` together with `lesson1_text_to_data/`, `workshop/`, `data/` and the skill, makes it a git project with its own `.venv` and `DRY_RUN=1`, and writes `start_agent.sh`. Then `cd ~/sdc_agent_demo && ./start_agent.sh`.

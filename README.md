@@ -11,7 +11,7 @@ Two hands-on lessons. No coding experience needed.
 
 ```
 lesson1_text_to_data/     the lesson 1 notebooks (start with 01)
-lesson2_agentic_coding/   the agent project, its skills, and a template for your own skill
+lesson2_agentic_coding/   a coding agent that runs and changes the notebooks, with one skill
 additional_materials/     more notebooks for after the workshop, starting with A1 · your own data
 data/                     all datasets (sources and licences in data/README.md)
 workshop/                 the small helper module the notebooks use
